@@ -1,0 +1,1938 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Atenas Accounts</title>
+<link rel="icon" type="image/png" href="assets/img/logo.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Poppins:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/css/main.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+<div class="layout">
+
+  <!-- TOPBAR MÓVIL -->
+  <div class="mobile-topbar">
+    <div class="mobile-topbar-logo">
+      <img src="assets/img/logo.png" alt="Atenas">
+      <h1>ATENAS</h1>
+    </div>
+    <button class="hamburger-btn" onclick="toggleMobileMenu()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+  </div>
+
+  <!-- MENÚ HAMBURGUESA -->
+  <div class="mobile-menu-overlay" id="mobile-menu" onclick="if(event.target===this) toggleMobileMenu()">
+    <div class="mobile-menu-panel">
+      <div class="mobile-menu-header">
+        <h1>Atenas Style Shop</h1>
+        <button class="mobile-menu-close" onclick="toggleMobileMenu()">✕</button>
+      </div>
+
+      <div class="nav-label">Análisis</div>
+      <div class="nav-item" data-view="dashboard" onclick="showView('dashboard');toggleMobileMenu()">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg></span>
+        <span class="nav-text">Dashboard</span>
+      </div>
+      <div class="nav-item" data-view="inventario" onclick="showView('inventario');toggleMobileMenu()">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>
+        <span class="nav-text">Inventario</span>
+      </div>
+      <div class="nav-item" data-view="ventas" onclick="showView('ventas');toggleMobileMenu()">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span>
+        <span class="nav-text">Ventas</span>
+      </div>
+      <div class="nav-item" data-view="compras" onclick="showView('compras');toggleMobileMenu()">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></span>
+        <span class="nav-text">Compras</span>
+      </div>
+      <div class="nav-item" data-view="gastos" onclick="showView('gastos');toggleMobileMenu()">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+        <span class="nav-text">Gastos</span>
+      </div>
+
+      <div class="nav-label">Operaciones</div>
+      <div class="nav-item" data-view="caja" onclick="showView('caja');toggleMobileMenu()">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span>
+        <span class="nav-text">Caja</span>
+      </div>
+      <div class="nav-item" data-view="cotizaciones" onclick="showView('cotizaciones');toggleMobileMenu()">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+        <span class="nav-text">Cotizaciones</span>
+      </div>
+
+      <div class="nav-item" data-view="envios" onclick="showView('envios')">
+  <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span>
+  <span class="nav-text">Envíos</span>
+</div>
+
+      <div class="nav-label">General</div>
+      <div class="nav-item" data-view="contactos" onclick="showView('contactos');toggleMobileMenu()">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+        <span class="nav-text">Contactos</span>
+      </div>
+    </div>
+  </div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo" onclick="toggleSidebar()">
+      <img src="assets/img/logo.png" alt="Atenas">
+      <div class="sidebar-logo-text">
+        <h1>Atenas Style Shop</h1>
+        <span>Sistema ERP Local</span>
+      </div>
+    </div>
+
+    <div class="nav-label">Análisis</div>
+    <div class="nav-item active" data-view="dashboard" onclick="showView('dashboard')">
+      <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg></span>
+      <span class="nav-text">Dashboard</span>
+    </div>
+    <div class="nav-item" data-view="inventario" onclick="showView('inventario')">
+      <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>
+      <span class="nav-text">Inventario</span>
+    </div>
+    <div class="nav-item" data-view="ventas" onclick="showView('ventas')">
+      <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span>
+      <span class="nav-text">Ventas</span>
+    </div>
+    <div class="nav-item" data-view="compras" onclick="showView('compras')">
+      <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></span>
+      <span class="nav-text">Compras</span>
+    </div>
+    <div class="nav-item" data-view="gastos" onclick="showView('gastos')">
+      <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+      <span class="nav-text">Gastos</span>
+    </div>
+
+    <div class="nav-label">Operaciones</div>
+    <div class="nav-item" data-view="caja" onclick="showView('caja')">
+      <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span>
+      <span class="nav-text">Caja</span>
+    </div>
+    <div class="nav-item" data-view="cotizaciones" onclick="showView('cotizaciones')">
+      <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+      <span class="nav-text">Cotizaciones</span>
+    </div>
+
+   <div class="nav-item" data-view="envios" onclick="showView('envios');toggleMobileMenu()">
+  <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span>
+  <span class="nav-text">Envíos</span>
+</div>
+
+    <div class="nav-label">General</div>
+    <div class="nav-item" data-view="contactos" onclick="showView('contactos')">
+      <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+      <span class="nav-text">Contactos</span>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- ===================== DASHBOARD (placeholder) ===================== -->
+    <div class="view active" id="view-dashboard">
+      <div class="mod-head" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+        <div>
+          <h2>DASHBOARD ATENAS</h2>
+          <div class="mod-head-sub" id="dash-fecha-hoy"></div>
+        </div>
+      <select class="form-select dash-mes-select" id="dash-mes-general" onchange="cambiarMesDashboard(this.value)">
+</select>
+      </div>
+
+     <div class="kpi-grid">
+        <div class="kpi-card" style="background:linear-gradient(135deg,var(--verde),#27AE60);border-left:none;">
+          <div class="kpi-label" style="color:#fff;opacity:.9;">Utilidad</div>
+          <div class="kpi-value" style="color:#fff;" id="dash-utilidad">$0</div>
+          <div class="kpi-sub" style="color:#fff;opacity:.85;">Ventas − Compras − Gastos</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Margen de Ganancia</div>
+          <div class="kpi-value" id="dash-margen">0%</div>
+          <div class="kpi-sub">Utilidad / Ventas</div>
+        </div>
+        <div class="kpi-card" style="background:linear-gradient(135deg,#E0F0FF,#C7E5FF);border-left:none;">
+          <div class="kpi-label" style="color:#1A5FA0;">Ventas Totales</div>
+          <div class="kpi-value" style="color:#1A5FA0;" id="dash-ventas-total">$0</div>
+          <div class="kpi-sub" style="color:#1A5FA0;opacity:.7;">Este mes</div>
+        </div>
+        <div class="kpi-card" style="background:linear-gradient(135deg,#FFF3C4,#FFE9A0);border-left:none;">
+          <div class="kpi-label" style="color:#9A7B00;">Compras + Gastos</div>
+          <div class="kpi-value" style="color:#9A7B00;" id="dash-compras-gastos">$0</div>
+          <div class="kpi-sub" style="color:#9A7B00;opacity:.7;">Este mes</div>
+        </div>
+      </div>
+
+     <!-- META DE VENTAS -->
+      <div class="meta-card">
+        <div class="meta-header">
+          <div class="meta-title">🎯 Meta de Ventas del Mes</div>
+          <button class="meta-edit-btn" onclick="abrirModalMeta()">✏️ Editar meta</button>
+        </div>
+        <div class="meta-progress-track">
+          <div class="meta-progress-fill" id="meta-fill" style="width:0%;"><span id="meta-pct">0%</span></div>
+        </div>
+        <div class="confetti-container" id="confetti-container"></div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--gris-60);margin-top:6px;">
+          <span id="meta-actual">$0</span>
+          <span id="meta-objetivo">Meta: $2.000.000</span>
+        </div>
+        <div class="meta-msg" id="meta-msg"></div>
+      </div>
+
+      <div class="dash-grid" id="dash-graficos">
+
+        <!-- VENTAS ÚLTIMOS 6 MESES -->
+        <div class="gasto-resumen-card">
+          <div class="gasto-resumen-title">📈 Ventas — Últimos 6 Meses</div>
+          <div class="bar-chart-vertical" id="dash-grafico-meses">
+          </div>
+        </div>
+
+        <!-- TOP 3 PRODUCTOS MÁS VENDIDOS -->
+        <div class="gasto-resumen-card">
+          <div class="gasto-resumen-title">🏆 Top 3 Productos Más Vendidos</div>
+          <div class="top3-products" id="dash-top-productos">
+            <div style="text-align:center;color:var(--gris-60);padding:20px;font-size:13px;">Cargando...</div>
+          </div>
+        </div>
+
+        <!-- TOP 3 CLIENTES CON MÁS VENTAS -->
+        <div class="gasto-resumen-card">
+          <div class="gasto-resumen-title">👑 Top 3 Clientes con Más Ventas</div>
+          <div id="dash-top-clientes">
+            <div style="text-align:center;color:var(--gris-60);padding:20px;font-size:13px;">Cargando...</div>
+          </div>
+        </div>
+
+        <!-- TOP 3 DÍAS CON MÁS VENTAS -->
+        <div class="gasto-resumen-card">
+          <div class="gasto-resumen-title">📅 Top 3 Días con Más Ventas</div>
+          <div id="dash-top-dias">
+            <div style="text-align:center;color:var(--gris-60);padding:20px;font-size:13px;">Cargando...</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ===================== INVENTARIO ===================== -->
+    <div class="view" id="view-inventario">
+      <div class="mod-head">
+        <h2>INVENTARIO ATENAS</h2>
+        <div class="mod-head-sub">Productos, stock y márgenes</div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Valor Inventario</div>
+          <div class="kpi-value" id="kpi-valor-inventario">$0</div>
+          <div class="kpi-sub">Costo total del stock</div>
+        </div>
+        <div class="kpi-card fucsia">
+          <div class="kpi-label">Margen Promedio</div>
+          <div class="kpi-value" id="kpi-margen-promedio">0%</div>
+          <div class="kpi-sub">% ganancia global</div>
+        </div>
+        <div class="kpi-card verde">
+          <div class="kpi-label">Referencias</div>
+          <div class="kpi-value" id="kpi-referencias">0</div>
+          <div class="kpi-sub">Productos activos</div>
+        </div>
+        <div class="kpi-card amarillo">
+          <div class="kpi-label">Sin Stock</div>
+          <div class="kpi-value" id="kpi-sin-stock">0</div>
+          <div class="kpi-sub">Productos agotados</div>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <input class="search-input" placeholder="Buscar por nombre o ref..." oninput="buscarInventario(this.value)">
+          <div class="tabs">
+            <div class="tab active" onclick="invView('ref',this)">🔢 Por Referencia</div>
+            <div class="tab" onclick="invView('grp',this)">🔗 Agrupado</div>
+            <div class="tab" onclick="invView('sin-stock',this)">⚠️ Sin Stock</div>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="abrirModalProducto()">＋ Nuevo Producto</button>
+      </div>
+
+      <!-- VISTA POR REFERENCIA -->
+      <div id="inv-ref">
+        <div class="section-box">
+          <table class="desktop-table">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th style="text-align:center;">Stock</th>
+                <th style="text-align:right;">Costo</th>
+                <th style="text-align:right;">Precio</th>
+                <th style="text-align:center;">% Gan.</th>
+                <th style="text-align:center;">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="inv-tbody">
+              <tr><td colspan="6" style="text-align:center;color:var(--gris-60);padding:30px;">Cargando...</td></tr>
+            </tbody>
+          </table>
+
+          <!-- Mobile cards -->
+          <div class="mobile-cards" id="inv-mobile-cards"></div>
+        </div>
+      </div>
+
+      <!-- VISTA AGRUPADA -->
+      <div id="inv-grp" style="display:none;">
+        <div id="inv-grp-cont"></div>
+        <p style="font-size:11px;color:var(--gris-60);margin-top:8px;">💡 Agrupado automáticamente por la primera palabra del nombre.</p>
+      </div>
+    </div>
+
+    <!-- MODAL NUEVO/EDITAR PRODUCTO -->
+    <div class="modal-overlay" id="modal-prod">
+      <div class="modal">
+        <div class="modal-head">
+          <h3 id="modal-prod-title">➕ Nuevo Producto</h3>
+          <button class="modal-close" onclick="cerrarModalProducto()">✕</button>
+        </div>
+
+        <div id="foto-area">
+          <label class="photo-drop" for="foto-input">📷 Click para subir foto</label>
+          <input type="file" id="foto-input" accept="image/*" style="display:none;" onchange="previewFoto(event)">
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Referencia</label>
+            <input class="form-input" id="p-referencia" readonly>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Stock Inicial</label>
+            <input class="form-input" type="number" id="p-stock" value="0" min="0">
+          </div>
+          <div class="form-group full">
+            <label class="form-label">Nombre del Producto</label>
+            <input class="form-input" id="p-nombre" placeholder="Ej: Ampolla Anticaída">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Costo</label>
+            <input class="form-input" id="p-costo" type="text" placeholder="0" oninput="formatNum(this);calcMargen();">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Precio Venta</label>
+            <input class="form-input" id="p-precio" type="text" placeholder="0" oninput="formatNum(this);calcMargen();">
+          </div>
+          <div class="margen-box" id="margen-box">
+            Vista previa: <strong id="m-pct" style="color:var(--verde);">0%</strong> &nbsp;&nbsp; Ganancia/u: <strong id="m-gan">$0</strong>
+          </div>
+        </div>
+
+        <div class="form-footer">
+          <button class="btn btn-secondary" onclick="cerrarModalProducto()">Cancelar</button>
+          <button class="btn btn-primary" onclick="guardarProducto()">💾 Guardar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL NUEVO PRODUCTO -->
+    <div class="modal-overlay" id="modal-prod">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>➕ Nuevo Producto</h3>
+          <button class="modal-close" onclick="cerrarModalProducto()">✕</button>
+        </div>
+
+        <div id="foto-area">
+          <label class="photo-drop" for="foto-input">📷 Click para subir foto</label>
+          <input type="file" id="foto-input" accept="image/*" style="display:none;" onchange="previewFoto(event)">
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Referencia</label>
+            <input class="form-input" value="ATS-004" readonly>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Stock Inicial</label>
+            <input class="form-input" type="number" id="p-stock" value="0" min="0">
+          </div>
+          <div class="form-group full">
+            <label class="form-label">Nombre del Producto</label>
+            <input class="form-input" id="p-nombre" placeholder="Ej: Ampolla Anticaída">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Costo</label>
+            <input class="form-input" id="p-costo" type="text" placeholder="0" oninput="formatNum(this);calcMargen();">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Precio Venta</label>
+            <input class="form-input" id="p-precio" type="text" placeholder="0" oninput="formatNum(this);calcMargen();">
+          </div>
+          <div class="margen-box" id="margen-box">
+            Vista previa: <strong id="m-pct" style="color:var(--verde);">0%</strong> &nbsp;&nbsp; Ganancia/u: <strong id="m-gan">$0</strong>
+          </div>
+        </div>
+
+        <div class="form-footer">
+          <button class="btn btn-secondary" onclick="cerrarModalProducto()">Cancelar</button>
+          <button class="btn btn-primary" onclick="guardarProducto()">💾 Guardar</button>
+        </div>
+      </div>
+    </div>
+    <!-- ===================== CAJA ===================== -->
+    <div class="view" id="view-caja">
+   <div class="mod-head mod-head-caja">
+      <div>
+          <h2>🏦 CAJA REGISTRADORA</h2>
+          <div class="mod-head-sub">Efectivo, transferencias y pendientes</div>
+        </div>
+        <div class="cerrar-mes-mini">
+          <button id="btn-cerrar-mes" onclick="abrirModalCerrarMes()">🔒 Cerrar Mes</button>
+<span id="cerrar-mes-hint"></span>
+        </div>
+</div>
+      <div class="cuadre-alert">
+        <div class="cuadre-icon">✅</div>
+        <div>
+          <div class="cuadre-title">¡CAJA CUADRADA!</div>
+          <div class="cuadre-sub">El arqueo coincide con lo esperado</div>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="caja-kpi efectivo" onclick="toggleCaja('efectivo')">
+         <div class="caja-kpi-logo">
+            <svg width="40" height="28" viewBox="0 0 40 28" fill="none">
+              <rect x="1" y="1" width="38" height="26" rx="5" fill="rgba(255,255,255,0.2)" stroke="rgba(255,255,255,0.7)" stroke-width="1.5"/>
+              <circle cx="20" cy="14" r="6" fill="rgba(255,255,255,0.25)" stroke="rgba(255,255,255,0.8)" stroke-width="1.5"/>
+              <text x="20" y="18" text-anchor="middle" font-size="9" fill="white" font-weight="bold">$</text>
+              <rect x="4" y="5" width="6" height="4" rx="1.5" fill="rgba(255,255,255,0.4)"/>
+              <rect x="30" y="19" width="6" height="4" rx="1.5" fill="rgba(255,255,255,0.4)"/>
+            </svg>
+          </div>
+          <div class="caja-kpi-label">Efectivo</div>
+          <div class="caja-kpi-value" id="kpi-efectivo-valor">$0</div>
+          <div class="caja-kpi-hint">▶ Ver billetes</div>
+        </div>
+        <div class="caja-kpi nequi" onclick="toggleCaja('nequi')">
+          <div class="caja-kpi-logo"><img src="assets/img/logo-nequi.png" style="height:50px;object-fit:contain;"></div>
+          <div class="caja-kpi-label">Nequi</div>
+          <div class="caja-kpi-value" id="kpi-nequi-valor">$0</div>
+          <div class="caja-kpi-hint">▶ Ver / editar</div>
+        </div>
+        <div class="caja-kpi banco" onclick="toggleCaja('banco')">
+         <div class="caja-kpi-logo"><img src="assets/img/logo-bancolombia.png" style="height:50px;object-fit:contain;"></div>
+          <div class="caja-kpi-label">Bancolombia</div>
+          <div class="caja-kpi-value" id="kpi-banco-valor">$0</div>
+          <div class="caja-kpi-hint">▶ Ver / editar</div>
+        </div>
+        <div class="caja-kpi total">
+          <div class="caja-kpi-logo">
+            <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+              <!-- Palo central -->
+              <rect x="17" y="6" width="2" height="22" rx="1" fill="rgba(255,255,255,0.9)"/>
+              <!-- Base -->
+              <rect x="10" y="28" width="16" height="2.5" rx="1.2" fill="rgba(255,255,255,0.9)"/>
+              <!-- Barra horizontal -->
+              <rect x="6" y="9" width="24" height="2" rx="1" fill="rgba(255,255,255,0.9)"/>
+              <!-- Cadena izquierda -->
+              <line x1="8" y1="11" x2="8" y2="18" stroke="rgba(255,255,255,0.8)" stroke-width="1.2"/>
+              <!-- Cadena derecha -->
+              <line x1="28" y1="11" x2="28" y2="18" stroke="rgba(255,255,255,0.8)" stroke-width="1.2"/>
+              <!-- Platillo izquierdo -->
+              <ellipse cx="8" cy="19" rx="5" ry="2" fill="rgba(255,255,255,0.7)"/>
+              <!-- Platillo derecho -->
+              <ellipse cx="28" cy="19" rx="5" ry="2" fill="rgba(255,255,255,0.7)"/>
+            </svg>
+          </div>
+          <div class="caja-kpi-label">Balance Total</div>
+          <div class="caja-kpi-value" id="kpi-total-valor">$0</div>
+          <div class="caja-kpi-hint">Efectivo + Bancos </div>
+        </div>
+      </div>
+
+      <!-- Panel Efectivo -->
+      <div class="expand-panel" id="panel-efectivo">
+        <div class="expand-title">💵 Billetes</div>
+        <div class="denom-grid">
+          <div class="denom-card">
+            <div class="denom-visual bill-100000">$100.000</div>
+            <div class="denom-info">
+              <div class="denom-stepper">
+                <button class="denom-step-btn" onclick="stepDenom(this.nextElementSibling,100000,-1)">−</button>
+                <input class="denom-input" type="number" value="0" data-denom="100000" oninput="recalcDenom(this,100000)">
+                <button class="denom-step-btn" onclick="stepDenom(this.previousElementSibling,100000,1)">+</button>
+              </div>
+              <div class="denom-sub">$0</div>
+            </div>
+          </div>
+          <div class="denom-card">
+            <div class="denom-visual bill-50000">$50.000</div>
+            <div class="denom-info">
+              <div class="denom-stepper">
+                <button class="denom-step-btn" onclick="stepDenom(this.nextElementSibling,50000,-1)">−</button>
+                <input class="denom-input" type="number" value="0" data-denom="50000" oninput="recalcDenom(this,50000)">
+                <button class="denom-step-btn" onclick="stepDenom(this.previousElementSibling,50000,1)">+</button>
+              </div>
+              <div class="denom-sub">$0</div>
+            </div>
+          </div>
+          <div class="denom-card">
+            <div class="denom-visual bill-20000">$20.000</div>
+            <div class="denom-info">
+              <div class="denom-stepper">
+                <button class="denom-step-btn" onclick="stepDenom(this.nextElementSibling,20000,-1)">−</button>
+                <input class="denom-input" type="number" value="0" data-denom="20000" oninput="recalcDenom(this,20000)">
+                <button class="denom-step-btn" onclick="stepDenom(this.previousElementSibling,20000,1)">+</button>
+              </div>
+              <div class="denom-sub">$0</div>
+            </div>
+          </div>
+          <div class="denom-card">
+            <div class="denom-visual bill-10000">$10.000</div>
+            <div class="denom-info">
+              <div class="denom-stepper">
+                <button class="denom-step-btn" onclick="stepDenom(this.nextElementSibling,10000,-1)">−</button>
+                <input class="denom-input" type="number" value="0" data-denom="10000" oninput="recalcDenom(this,10000)">
+                <button class="denom-step-btn" onclick="stepDenom(this.previousElementSibling,10000,1)">+</button>
+              </div>
+              <div class="denom-sub">$0</div>
+            </div>
+          </div>
+          <div class="denom-card">
+            <div class="denom-visual bill-5000">$5.000</div>
+            <div class="denom-info">
+              <div class="denom-stepper">
+                <button class="denom-step-btn" onclick="stepDenom(this.nextElementSibling,5000,-1)">−</button>
+                <input class="denom-input" type="number" value="0" data-denom="5000" oninput="recalcDenom(this,5000)">
+                <button class="denom-step-btn" onclick="stepDenom(this.previousElementSibling,5000,1)">+</button>
+              </div>
+              <div class="denom-sub">$0</div>
+            </div>
+          </div>
+          <div class="denom-card">
+            <div class="denom-visual bill-2000">$2.000</div>
+            <div class="denom-info">
+              <div class="denom-stepper">
+                <button class="denom-step-btn" onclick="stepDenom(this.nextElementSibling,2000,-1)">−</button>
+                <input class="denom-input" type="number" value="0" data-denom="2000" oninput="recalcDenom(this,2000)">
+                <button class="denom-step-btn" onclick="stepDenom(this.previousElementSibling,2000,1)">+</button>
+              </div>
+              <div class="denom-sub">$0</div>
+            </div>
+          </div>
+          <div class="denom-card">
+            <div class="denom-visual bill-1000">$1.000</div>
+            <div class="denom-info">
+              <div class="denom-stepper">
+                <button class="denom-step-btn" onclick="stepDenom(this.nextElementSibling,1000,-1)">−</button>
+                <input class="denom-input" type="number" value="0" data-denom="1000" oninput="recalcDenom(this,1000)">
+                <button class="denom-step-btn" onclick="stepDenom(this.previousElementSibling,1000,1)">+</button>
+              </div>
+              <div class="denom-sub">$0</div>
+            </div>
+          </div>
+          <div class="denom-card">
+            <div class="denom-visual coin coin-500">500</div>
+            <div class="denom-info">
+              <div class="denom-stepper">
+                <button class="denom-step-btn" onclick="stepDenom(this.nextElementSibling,500,-1)">−</button>
+                <input class="denom-input" type="number" value="0" data-denom="500" oninput="recalcDenom(this,500)">
+                <button class="denom-step-btn" onclick="stepDenom(this.previousElementSibling,500,1)">+</button>
+              </div>
+              <div class="denom-sub">$0</div>
+            </div>
+          </div>
+          <div class="denom-card">
+            <div class="denom-visual coin coin-200">200</div>
+            <div class="denom-info">
+              <div class="denom-stepper">
+                <button class="denom-step-btn" onclick="stepDenom(this.nextElementSibling,200,-1)">−</button>
+                <input class="denom-input" type="number" value="0" data-denom="200" oninput="recalcDenom(this,200)">
+                <button class="denom-step-btn" onclick="stepDenom(this.previousElementSibling,200,1)">+</button>
+              </div>
+              <div class="denom-sub">$0</div>
+            </div>
+          </div>
+          <div class="denom-card">
+            <div class="denom-visual coin coin-100">100</div>
+            <div class="denom-info">
+              <div class="denom-stepper">
+                <button class="denom-step-btn" onclick="stepDenom(this.nextElementSibling,100,-1)">−</button>
+                <input class="denom-input" type="number" value="0" data-denom="100" oninput="recalcDenom(this,100)">
+                <button class="denom-step-btn" onclick="stepDenom(this.previousElementSibling,100,1)">+</button>
+              </div>
+              <div class="denom-sub">$0</div>
+            </div>
+          </div>
+        </div>
+        <div class="subtotal-bar">
+          <span>TOTAL CONTADO</span><span id="total-efectivo">$0</span>
+        </div>
+      </div>
+
+     <!-- Panel Nequi -->
+      <div class="expand-panel" id="panel-nequi">
+        <div class="expand-title" style="color:var(--nequi-text);">nequi — Detalle</div>
+        <div class="bank-row"><span>Saldo actual</span><strong id="nequi-saldo-actual">$0</strong></div>
+        <div id="nequi-historial" style="margin:8px 0;"></div>
+        <div style="margin-top:12px;display:flex;gap:8px;">
+          <input class="form-input" placeholder="Ajuste manual de saldo" id="nequi-nuevo" oninput="formatNum(this)">
+          <button class="btn" style="background:var(--nequi-dark);color:var(--nequi-text);" onclick="ajustarSaldoBanco('nequi')">Guardar</button>
+        </div>
+        <button class="btn btn-secondary" style="width:100%;margin-top:10px;" onclick="abrirTransferencia('Nequi','Bancolombia')">🔄 Enviar a Bancolombia</button>
+      </div>
+
+      <!-- Panel Bancolombia -->
+      <div class="expand-panel" id="panel-banco">
+        <div class="expand-title" style="color:var(--banco-text);">Bancolombia — Detalle</div>
+        <div class="bank-row"><span>Saldo actual</span><strong id="banco-saldo-actual">$0</strong></div>
+        <div id="banco-historial" style="margin:8px 0;"></div>
+        <div style="margin-top:12px;display:flex;gap:8px;">
+          <input class="form-input" placeholder="Ajuste manual de saldo" id="banco-nuevo" oninput="formatNum(this)">
+          <button class="btn" style="background:var(--banco-dark);color:var(--banco-text);" onclick="ajustarSaldoBanco('bancolombia')">Guardar</button>
+        </div>
+        <button class="btn btn-secondary" style="width:100%;margin-top:10px;" onclick="abrirTransferencia('Bancolombia','Nequi')">🔄 Enviar a Nequi</button>
+      </div>
+
+      <!-- Contra Entregas -->
+      <div class="section-box">
+        <div class="toolbar" style="margin-bottom:0;box-shadow:none;border-radius:0;border-bottom:1px solid var(--gris-20);">
+          <strong style="font-family:'Nunito',sans-serif;font-size:13px;">📦 Contra Entregas</strong>
+          <button class="btn btn-primary" onclick="abrirModalContra()">➕ Agregar</button>
+        </div>
+       <table class="desktop-table">
+          <thead>
+            <tr>
+              <th>Cliente</th><th>Ciudad</th><th style="text-align:right;">Monto</th><th>Transp.</th><th style="text-align:center;">Estado</th><th style="text-align:center;">Acción</th>
+            </tr>
+          </thead>
+          <tbody id="contra-tbody">
+          </tbody>
+        </table>
+        <div class="mobile-cards section-box" id="contra-mobile-cards"></div>
+        <div class="transit-banner">
+          <span>EN PREPARACIÓN + TRÁNSITO</span><span id="transit-total">$0</span>
+        </div>
+      </div>
+      <!-- PENDIENTES -->
+      <div class="section-box">
+        <div class="toolbar" style="margin-bottom:0;box-shadow:none;border-radius:0;border-bottom:1px solid var(--gris-20);">
+          <strong style="font-family:'Nunito',sans-serif;font-size:13px;">📋 Pendientes </strong>
+          <button class="btn btn-primary" onclick="abrirModalPendiente()">➕ Agregar</button>
+        </div>
+        <div id="pendientes-lista">
+</div>
+        <div class="transit-banner pendientes-banner">
+          <span>TOTAL PENDIENTES ACTIVOS </span><span id="pend-total">-$350.000</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL CONTRA ENTREGA -->
+    <div class="modal-overlay" id="modal-contra">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>📦 Agregar Contra Entrega</h3>
+          <button class="modal-close" onclick="cerrarModalContra()">✕</button>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Cliente</label>
+            <input class="form-input" id="c-cliente" placeholder="Nombre del cliente">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Ciudad</label>
+            <input class="form-input" id="c-ciudad" placeholder="Bogotá, Medellín...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Monto</label>
+            <input class="form-input" id="c-monto" type="text" placeholder="0" oninput="formatNum(this)">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Transportadora</label>
+            <select class="form-select" id="c-transp">
+              <option value="">—</option>
+              <option>Servientrega</option>
+              <option>Coordinadora</option>
+              <option>Envia</option>
+              <option>Interrapidísimo</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-footer">
+          <button class="btn btn-secondary" onclick="cerrarModalContra()">Cancelar</button>
+          <button class="btn btn-primary" onclick="guardarContra()">➕ Agregar</button>
+        </div>
+      </div>
+    </div>
+    <!-- MODAL TRANSFERENCIA -->
+    <div class="modal-overlay" id="modal-transf">
+      <div class="modal">
+        <div class="modal-head">
+          <h3 id="t-titulo">🔄 Transferencia Interna</h3>
+          <button class="modal-close" onclick="cerrarModalTransf()">✕</button>
+        </div>
+        <p id="t-desc" style="font-size:13px;color:var(--gris-60);margin-bottom:14px;"></p>
+        <div class="form-grid">
+          <div class="form-group full">
+            <label class="form-label">Monto a transferir</label>
+            <input class="form-input" id="t-monto" type="text" placeholder="0" oninput="formatNum(this)">
+          </div>
+        </div>
+        <div class="form-footer">
+          <button class="btn btn-secondary" onclick="cerrarModalTransf()">Cancelar</button>
+          <button class="btn btn-primary" onclick="confirmarTransferencia()">🔄 Transferir</button>
+        </div>
+      </div>
+    </div>
+    <!-- MODAL CERRAR MES -->
+    <div class="modal-overlay" id="modal-cerrar-mes">
+      <div class="modal">
+        <div class="modal-head">
+          <h3 id="cerrar-mes-titulo">🔒 Cerrar Mes</h3>
+          <button class="modal-close" onclick="cerrarModalCerrarMes()">✕</button>
+        </div>
+        <p style="font-size:13px;color:var(--gris-80);margin-bottom:14px;">
+          Se guardará un resumen archivado de este mes con la siguiente información:
+        </p>
+        <div class="multi-items-total">
+          <span>💰 Ventas Totales</span>
+          <span id="cerrar-mes-ventas">$0</span>
+        </div>
+        <div class="multi-items-total">
+          <span>🛒 Compras Totales</span>
+          <span id="cerrar-mes-compras">$0</span>
+        </div>
+        <div class="multi-items-total">
+          <span>💸 Gastos Totales</span>
+          <span id="cerrar-mes-gastos">$0</span>
+        </div>
+        <div class="multi-items-total" style="background:var(--celeste-light);">
+          <span>📈 Utilidad del Mes</span>
+          <span id="cerrar-mes-utilidad" style="font-weight:900;">$0</span>
+        </div>
+        <p style="font-size:11px;color:var(--gris-60);margin:14px 0;">
+          ⚠️ Los saldos de Efectivo, Nequi y Bancolombia se mantienen como punto de partida para el nuevo mes. Las ventas, compras y gastos quedarán archivados y podrás consultarlos desde el Dashboard.
+        </p>
+        <div class="form-footer">
+          <button class="btn btn-secondary" onclick="cerrarModalCerrarMes()">Cancelar</button>
+          <button class="btn btn-primary" onclick="confirmarCierreMes()">🔒 Confirmar Cierre</button>
+        </div>
+      </div>
+    </div>
+<!-- MODAL ABONO VENTA -->
+    <div class="modal-overlay" id="modal-abono-venta">
+      <div class="modal" style="max-width:400px;">
+        <div class="modal-head">
+          <h3>💰 Registrar Pago/Abono</h3>
+          <button class="modal-close" onclick="cerrarModalAbonoVenta()">✕</button>
+        </div>
+        <p style="font-size:13px;color:var(--gris-80);margin-bottom:14px;">
+          Saldo pendiente: <strong id="abono-venta-saldo" style="color:var(--rojo);">$0</strong>
+        </p>
+        <div class="form-grid">
+          <div class="form-group full">
+            <label class="form-label">Monto del abono</label>
+            <input class="form-input" id="abono-venta-monto" type="text" placeholder="0" oninput="formatNum(this)">
+          </div>
+          <div class="form-group full">
+            <label class="form-label">¿Cómo llegó el pago?</label>
+            <select class="form-select" id="abono-venta-fuente">
+              <option value="efectivo">💵 Efectivo</option>
+              <option value="nequi">nequi</option>
+              <option value="bancolombia">Bancolombia</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-footer">
+          <button class="btn btn-secondary" onclick="cerrarModalAbonoVenta()">Cancelar</button>
+          <button class="btn btn-primary" onclick="confirmarAbonoVenta()">💾 Registrar Abono</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL ABONO COMPRA -->
+    <div class="modal-overlay" id="modal-abono-compra">
+      <div class="modal" style="max-width:400px;">
+        <div class="modal-head">
+          <h3>💰 Registrar Abono a Proveedor</h3>
+          <button class="modal-close" onclick="cerrarModalAbonoCompra()">✕</button>
+        </div>
+        <p style="font-size:13px;color:var(--gris-80);margin-bottom:14px;">
+          Saldo pendiente: <strong id="abono-compra-saldo" style="color:var(--rojo);">$0</strong>
+        </p>
+        <div class="form-grid">
+          <div class="form-group full">
+            <label class="form-label">Monto del abono</label>
+            <input class="form-input" id="abono-compra-monto" type="text" placeholder="0" oninput="formatNum(this)">
+          </div>
+          <div class="form-group full">
+            <label class="form-label">¿De dónde sale el pago?</label>
+            <select class="form-select" id="abono-compra-fuente">
+              <option value="efectivo">💵 Efectivo</option>
+              <option value="nequi">nequi</option>
+              <option value="bancolombia">Bancolombia</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-footer">
+          <button class="btn btn-secondary" onclick="cerrarModalAbonoCompra()">Cancelar</button>
+          <button class="btn btn-primary" onclick="confirmarAbonoCompra()">💾 Registrar Abono</button>
+        </div>
+      </div>
+    </div>
+    <!-- MODAL ABONO PENDIENTE -->
+    <div class="modal-overlay" id="modal-abono-pendiente">
+      <div class="modal" style="max-width:400px;">
+        <div class="modal-head">
+          <h3>💰 Abonar a Pendiente</h3>
+          <button class="modal-close" onclick="cerrarModalAbonoPendiente()">✕</button>
+        </div>
+        <p style="font-size:13px;color:var(--gris-80);margin-bottom:14px;">
+          Saldo pendiente: <strong id="abono-pend-saldo" style="color:var(--rojo);">$0</strong>
+        </p>
+        <div class="form-grid">
+          <div class="form-group full">
+            <label class="form-label">Monto del abono</label>
+            <input class="form-input" id="abono-pend-monto" type="text" placeholder="0" oninput="formatNum(this)">
+          </div>
+         <div class="form-group full">
+            <label class="form-label">¿A donde llegara el abono?</label>
+            <select class="form-select" id="abono-pend-fuente">
+              <option value="efectivo">💵 Efectivo</option>
+              <option value="nequi">Nequi</option>
+              <option value="bancolombia">Bancolombia</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-footer">
+          <button class="btn btn-secondary" onclick="cerrarModalAbonoPendiente()">Cancelar</button>
+          <button class="btn btn-primary" onclick="confirmarAbonoPendiente()">💾 Registrar Abono</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL FUENTE PAGO COMPRA -->
+    <div class="modal-overlay" id="modal-fuente-compra">
+      <div class="modal" style="max-width:380px;">
+        <div class="modal-head">
+          <h3>💳 ¿De dónde sale el pago?</h3>
+        </div>
+        <p id="fuente-compra-desc" style="font-size:13px;color:var(--gris-80);margin-bottom:14px;"></p>
+        <div class="form-group">
+          <label class="form-label">Cuenta</label>
+          <select class="form-select" id="fuente-compra-cuenta">
+            <option value="efectivo">💵 Efectivo</option>
+            <option value="nequi">nequi</option>
+            <option value="bancolombia">Bancolombia</option>
+          </select>
+        </div>
+        <div class="form-footer">
+          <button class="btn btn-primary" style="width:100%;" onclick="confirmarFuenteCompra()">✅ Confirmar</button>
+        </div>
+      </div>
+    </div>
+
+   <!-- MODAL SALDO INICIAL (configuración única) -->
+    <div class="modal-overlay" id="modal-saldo-inicial">
+      <div class="modal" style="max-width:600px;">
+        <div class="modal-head">
+          <h3>🎉 ¡Bienvenida a ATENAS ERP!</h3>
+        </div>
+
+        <p style="font-size:13px;color:var(--gris-80);margin-bottom:14px;">
+          Antes de empezar, ingresa cuánto tienes hoy en efectivo (por billete/moneda) y los saldos de Nequi y Bancolombia. Esto será tu punto de partida.
+        </p>
+
+        <div class="expand-title">💵 Efectivo — Billetes y Monedas</div>
+       <div class="denom-grid">
+          <div class="denom-card">
+            <div class="denom-visual bill-100000">$100.000</div>
+            <div class="denom-info">
+              <div class="denom-stepper">
+                <button class="denom-step-btn" onclick="stepDenom(this.nextElementSibling,100000,-1,'si')">−</button>
+                <input class="denom-input" type="number" value="0" data-denom="100000" oninput="recalcDenom(this,100000,'si')">
+                <button class="denom-step-btn" onclick="stepDenom(this.previousElementSibling,100000,1,'si')">+</button>
+              </div>
+              <div class="denom-sub">$0</div>
+            </div>
+          </div>
+          <div class="denom-card">
+            <div class="denom-visual bill-50000">$50.000</div>
+            <div class="denom-info">
+              <div class="denom-stepper">
+                <button class="denom-step-btn" onclick="stepDenom(this.nextElementSibling,50000,-1,'si')">−</button>
+                <input class="denom-input" type="number" value="0" data-denom="50000" oninput="recalcDenom(this,50000,'si')">
+                <button class="denom-step-btn" onclick="stepDenom(this.previousElementSibling,50000,1,'si')">+</button>
+              </div>
+              <div class="denom-sub">$0</div>
+            </div>
+          </div>
+          <div class="denom-card">
+            <div class="denom-visual bill-20000">$20.000</div>
+            <div class="denom-info">
+              <div class="denom-stepper">
+                <button class="denom-step-btn" onclick="stepDenom(this.nextElementSibling,20000,-1,'si')">−</button>
+                <input class="denom-input" type="number" value="0" data-denom="20000" oninput="recalcDenom(this,20000,'si')">
+                <button class="denom-step-btn" onclick="stepDenom(this.previousElementSibling,20000,1,'si')">+</button>
+              </div>
+              <div class="denom-sub">$0</div>
+            </div>
+          </div>
+          <div class="denom-card">
+            <div class="denom-visual bill-10000">$10.000</div>
+            <div class="denom-info">
+              <div class="denom-stepper">
+                <button class="denom-step-btn" onclick="stepDenom(this.nextElementSibling,10000,-1,'si')">−</button>
+                <input class="denom-input" type="number" value="0" data-denom="10000" oninput="recalcDenom(this,10000,'si')">
+                <button class="denom-step-btn" onclick="stepDenom(this.previousElementSibling,10000,1,'si')">+</button>
+              </div>
+              <div class="denom-sub">$0</div>
+            </div>
+          </div>
+          <div class="denom-card">
+            <div class="denom-visual bill-5000">$5.000</div>
+            <div class="denom-info">
+              <div class="denom-stepper">
+                <button class="denom-step-btn" onclick="stepDenom(this.nextElementSibling,5000,-1,'si')">−</button>
+                <input class="denom-input" type="number" value="0" data-denom="5000" oninput="recalcDenom(this,5000,'si')">
+                <button class="denom-step-btn" onclick="stepDenom(this.previousElementSibling,5000,1,'si')">+</button>
+              </div>
+              <div class="denom-sub">$0</div>
+            </div>
+          </div>
+          <div class="denom-card">
+            <div class="denom-visual bill-2000">$2.000</div>
+            <div class="denom-info">
+              <div class="denom-stepper">
+                <button class="denom-step-btn" onclick="stepDenom(this.nextElementSibling,2000,-1,'si')">−</button>
+                <input class="denom-input" type="number" value="0" data-denom="2000" oninput="recalcDenom(this,2000,'si')">
+                <button class="denom-step-btn" onclick="stepDenom(this.previousElementSibling,2000,1,'si')">+</button>
+              </div>
+              <div class="denom-sub">$0</div>
+            </div>
+          </div>
+          <div class="denom-card">
+            <div class="denom-visual bill-1000">$1.000</div>
+            <div class="denom-info">
+              <div class="denom-stepper">
+                <button class="denom-step-btn" onclick="stepDenom(this.nextElementSibling,1000,-1,'si')">−</button>
+                <input class="denom-input" type="number" value="0" data-denom="1000" oninput="recalcDenom(this,1000,'si')">
+                <button class="denom-step-btn" onclick="stepDenom(this.previousElementSibling,1000,1,'si')">+</button>
+              </div>
+              <div class="denom-sub">$0</div>
+            </div>
+          </div>
+          <div class="denom-card">
+            <div class="denom-visual coin coin-500">500</div>
+            <div class="denom-info">
+              <div class="denom-stepper">
+                <button class="denom-step-btn" onclick="stepDenom(this.nextElementSibling,500,-1,'si')">−</button>
+                <input class="denom-input" type="number" value="0" data-denom="500" oninput="recalcDenom(this,500,'si')">
+                <button class="denom-step-btn" onclick="stepDenom(this.previousElementSibling,500,1,'si')">+</button>
+              </div>
+              <div class="denom-sub">$0</div>
+            </div>
+          </div>
+          <div class="denom-card">
+            <div class="denom-visual coin coin-200">200</div>
+            <div class="denom-info">
+              <div class="denom-stepper">
+                <button class="denom-step-btn" onclick="stepDenom(this.nextElementSibling,200,-1,'si')">−</button>
+                <input class="denom-input" type="number" value="0" data-denom="200" oninput="recalcDenom(this,200,'si')">
+                <button class="denom-step-btn" onclick="stepDenom(this.previousElementSibling,200,1,'si')">+</button>
+              </div>
+              <div class="denom-sub">$0</div>
+            </div>
+          </div>
+          <div class="denom-card">
+            <div class="denom-visual coin coin-100">100</div>
+            <div class="denom-info">
+              <div class="denom-stepper">
+                <button class="denom-step-btn" onclick="stepDenom(this.nextElementSibling,100,-1,'si')">−</button>
+                <input class="denom-input" type="number" value="0" data-denom="100" oninput="recalcDenom(this,100,'si')">
+                <button class="denom-step-btn" onclick="stepDenom(this.previousElementSibling,100,1,'si')">+</button>
+              </div>
+              <div class="denom-sub">$0</div>
+            </div>
+          </div>
+        </div>
+        <div class="subtotal-bar">
+          <span>TOTAL EFECTIVO</span><span id="si-total-efectivo">$0</span>
+        </div>
+
+        <div class="form-grid" style="margin-top:14px;">
+          <div class="form-group">
+            <label class="form-label">nequi — Saldo actual</label>
+            <input class="form-input" id="si-nequi" type="text" placeholder="0" oninput="formatNum(this)">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Bancolombia — Saldo actual</label>
+            <input class="form-input" id="si-bancolombia" type="text" placeholder="0" oninput="formatNum(this)">
+          </div>
+        </div>
+
+        <div class="form-footer">
+          <button class="btn btn-primary" style="width:100%;" onclick="guardarSaldoInicial()">🚀 Empezar a usar ATENAS</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL CONFIRMACIÓN GENÉRICO -->
+    <div class="modal-overlay" id="modal-confirm">
+      <div class="modal" style="max-width:380px;">
+        <div class="modal-head">
+          <h3 id="confirm-title">¿Estás segura?</h3>
+        </div>
+        <p id="confirm-msg" style="font-size:13px;color:var(--gris-80);margin-bottom:14px;"></p>
+        <div class="form-footer">
+          <button class="btn btn-secondary" id="confirm-cancel">Cancelar</button>
+          <button class="btn btn-primary" id="confirm-ok" style="background:var(--rojo);">Confirmar</button>
+        </div>
+      </div>
+    </div>
+<!-- MODAL NUEVA VENTA -->
+    <div class="modal-overlay" id="modal-venta">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>🛍 Nueva Venta</h3>
+          <button class="modal-close" onclick="cerrarModalVenta()">✕</button>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group full autocomplete-wrap">
+            <label class="form-label">Cliente</label>
+            <input class="form-input" id="v-cliente" placeholder="Buscar cliente o escribir nombre..." oninput="buscarClienteVenta(this.value)" autocomplete="off">
+            <div class="autocomplete-list" id="v-cliente-ac"></div>
+            <span class="form-hint" id="v-cliente-hint"></span>
+          </div>
+        </div>
+
+        <!-- Lista de items -->
+        <div id="v-items-list" style="margin-top:14px;"></div>
+
+        <button type="button" class="btn btn-secondary" style="width:100%;margin-top:6px;" onclick="agregarItemVenta()">➕ Agregar otro producto</button>
+
+        <div class="form-group full" style="margin-top:10px;flex-direction:row;align-items:center;gap:8px;">
+          <input type="checkbox" id="v-tiene-descuento" onchange="toggleDescuento()" style="width:16px;height:16px;">
+          <label class="form-label" style="margin:0;" for="v-tiene-descuento">¿Tiene descuento?</label>
+        </div>
+
+        <div class="form-grid" id="v-descuento-fields" style="display:none;margin-top:10px;">
+          <div class="form-group">
+            <label class="form-label">Descuento</label>
+            <input class="form-input" id="v-descuento" type="text" placeholder="0" oninput="formatNum(this);calcTotalGeneral();">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tipo Descuento</label>
+            <select class="form-select" id="v-descuento-tipo" onchange="calcTotalGeneral()">
+              <option value="monto">Monto ($)</option>
+              <option value="porcentaje">Porcentaje (%)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="multi-items-total subtotal">
+  <span>Subtotal</span>
+  <span id="v-subtotal">$0</span>
+</div>
+        <div class="multi-items-total" id="v-descuento-row" style="display:none;background:var(--rojo-light);">
+          <span style="color:var(--rojo);">Descuento</span>
+          <span id="v-descuento-valor" style="color:var(--rojo);">-$0</span>
+        </div>
+        <div class="multi-items-total">
+          <span>TOTAL VENTA</span>
+          <span id="v-total-general">$0</span>
+        </div>
+
+        <div class="form-grid" style="margin-top:14px;">
+          <div class="form-group">
+            <label class="form-label">Tipo de Venta</label>
+            <select class="form-select" id="v-tipo" onchange="cambioTipoVenta()">
+              <option value="contado">De Contado</option>
+              <option value="credito">A Crédito</option>
+              <option value="contraentrega">Contra Entrega</option>
+            </select>
+          </div>
+          <div class="form-group" id="v-metodo-wrap">
+            <label class="form-label">Método de Pago</label>
+            <select class="form-select" id="v-metodo" onchange="cambioMetodoPago()">
+              <option value="efectivo">Efectivo</option>
+              <option value="transferencia">Transferencia</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Fecha</label>
+            <input class="form-input" type="date" id="v-fecha">
+          </div>
+          <div class="form-group" id="v-banco-wrap" style="display:none;">
+            <label class="form-label">Recibir en</label>
+            <select class="form-select" id="v-banco">
+              <option value="Nequi">nequi</option>
+              <option value="Bancolombia">Bancolombia</option>
+            </select>
+          </div>
+          <div class="form-group full">
+            <div class="venta-tipo-banner contra" id="v-banner-contra">
+              📋 Esta venta aparecerá en <strong>Caja → Contra Entregas</strong> como "En Preparación". No se suma a ningún saldo hasta liquidar.
+            </div>
+          </div>
+        </div>
+
+        <div class="form-footer">
+          <button class="btn btn-secondary" onclick="cerrarModalVenta()">Cancelar</button>
+          <button class="btn btn-primary" onclick="guardarVenta()">💾 Registrar Venta</button>
+        </div>
+      </div>
+    </div>
+    <!-- MODAL NUEVA COMPRA -->
+    <div class="modal-overlay" id="modal-compra">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>🛒 Nueva Compra</h3>
+          <button class="modal-close" onclick="cerrarModalCompra()">✕</button>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group full autocomplete-wrap">
+            <label class="form-label">Proveedor</label>
+            <input class="form-input" id="co-proveedor" placeholder="Buscar proveedor..." oninput="buscarProveedorCompra(this.value)" autocomplete="off">
+            <div class="autocomplete-list" id="co-proveedor-ac"></div>
+            <span class="form-hint" id="co-proveedor-hint"></span>
+          </div>
+        </div>
+
+        <!-- Lista de items -->
+        <div id="co-items-list" style="margin-top:14px;"></div>
+
+        <button type="button" class="btn btn-secondary" style="width:100%;margin-top:6px;" onclick="agregarItemCompra()">➕ Agregar otro producto</button>
+
+        <div class="form-group full" style="margin-top:10px;flex-direction:row;align-items:center;gap:8px;">
+          <input type="checkbox" id="co-tiene-descuento" onchange="toggleDescuentoCompra()" style="width:16px;height:16px;">
+          <label class="form-label" style="margin:0;" for="co-tiene-descuento">¿Tiene descuento?</label>
+        </div>
+
+        <div class="form-grid" id="co-descuento-fields" style="display:none;margin-top:10px;">
+          <div class="form-group">
+            <label class="form-label">Descuento</label>
+            <input class="form-input" id="co-descuento" type="text" placeholder="0" oninput="formatNum(this);calcTotalCompra();">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tipo Descuento</label>
+            <select class="form-select" id="co-descuento-tipo" onchange="calcTotalCompra()">
+              <option value="monto">Monto ($)</option>
+              <option value="porcentaje">Porcentaje (%)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="multi-items-total subtotal">
+  <span>Subtotal</span>
+  <span id="co-subtotal">$0</span>
+</div>
+        <div class="multi-items-total" id="co-descuento-row" style="display:none;background:var(--rojo-light);">
+          <span style="color:var(--rojo);">Descuento</span>
+          <span id="co-descuento-valor" style="color:var(--rojo);">-$0</span>
+        </div>
+        <div class="multi-items-total">
+          <span>TOTAL COMPRA</span>
+          <span id="co-total-general">$0</span>
+        </div>
+
+        <div class="form-grid" style="margin-top:14px;">
+          <div class="form-group full">
+            <label class="form-label">Tipo de Pago</label>
+            <select class="form-select" id="co-tipo" onchange="cambioTipoCompra()">
+              <option value="contado">De Contado</option>
+              <option value="credito">A Crédito</option>
+            </select>
+          </div>
+          <div class="form-group full" id="co-fuente-wrap">
+            <label class="form-label">¿De dónde sale el pago?</label>
+            <select class="form-select" id="co-fuente-select">
+              <option value="efectivo">💵 Efectivo</option>
+              <option value="nequi">nequi</option>
+              <option value="bancolombia">Bancolombia</option>
+            </select>
+          </div>
+          <div class="form-group full" id="co-credito-banner" style="display:none;">
+            <div class="venta-tipo-banner show" style="background:var(--amarillo-light);color:#B45309;">
+              💳 Esta compra quedará como deuda pendiente con el proveedor.
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Fecha</label>
+            <input class="form-input" type="date" id="co-fecha">
+          </div>
+        </div>
+
+        <div class="form-footer">
+          <button class="btn btn-secondary" onclick="cerrarModalCompra()">Cancelar</button>
+          <button class="btn btn-primary" onclick="guardarCompra()">💾 Registrar Compra</button>
+        </div>
+      </div>
+    </div>
+    <!-- MODAL NUEVO GASTO -->
+    <div class="modal-overlay" id="modal-gasto">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>💸 Nuevo Gasto</h3>
+          <button class="modal-close" onclick="cerrarModalGasto()">✕</button>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group full">
+            <label class="form-label">Concepto</label>
+            <input class="form-input" id="g-concepto" placeholder="Ej: Cajas y bolsas">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Valor</label>
+            <input class="form-input" id="g-valor" type="text" placeholder="0" oninput="formatNum(this)">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tipo</label>
+            <select class="form-select" id="g-tipo">
+              <option value="empaque">Empaque</option>
+              <option value="descuento">Descuento</option>
+              <option value="ajustes">Ajustes</option>
+              <option value="envios">Envíos/Domicilios</option>
+              <option value="otros">Otros</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">¿De dónde sale?</label>
+            <select class="form-select" id="g-fuente">
+              <option value="efectivo">💵 Efectivo</option>
+              <option value="nequi">nequi</option>
+              <option value="bancolombia">Bancolombia</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Fecha</label>
+            <input class="form-input" type="date" id="g-fecha">
+          </div>
+        </div>
+
+        <div class="form-footer">
+          <button class="btn btn-secondary" onclick="cerrarModalGasto()">Cancelar</button>
+          <button class="btn btn-primary" onclick="guardarGasto()">💾 Guardar Gasto</button>
+        </div>
+      </div>
+    </div>
+    <!-- MODAL NUEVO PENDIENTE -->
+    <div class="modal-overlay" id="modal-pendiente">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>📋 Nuevo Pendiente</h3>
+          <button class="modal-close" onclick="cerrarModalPendiente()">✕</button>
+        </div>
+        <div class="form-grid">
+          <div class="form-group full">
+            <label class="form-label">Descripción</label>
+            <input class="form-input" id="pe-descripcion" placeholder="Ej: Adelanto sueldo - Juan">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Monto</label>
+            <input class="form-input" id="pe-monto" type="text" placeholder="0" oninput="formatNum(this)">
+          </div>
+         <div class="form-group">
+            <label class="form-label">Sale de</label>
+            <select class="form-select" id="pe-fuente">
+              <option value="efectivo">💵 Efectivo</option>
+              <option value="nequi">nequi</option>
+              <option value="bancolombia">Bancolombia</option>
+            </select>
+          </div>
+          <div class="form-group full">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+              <input type="checkbox" id="pe-ya-descontado">
+              Ya descontado del saldo inicial (no restar de caja)
+            </label>
+          </div>
+          
+        </div>
+        <div class="form-footer">
+          <button class="btn btn-secondary" onclick="cerrarModalPendiente()">Cancelar</button>
+          <button class="btn btn-primary" onclick="guardarPendiente()">➕ Agregar</button>
+        </div>
+      </div>
+    </div>
+    <!-- MODAL EDITAR CONTRA ENTREGA -->
+    <div class="modal-overlay" id="modal-contra-edit">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>📦 Editar Contra Entrega</h3>
+          <button class="modal-close" onclick="cerrarModalContraEdit()">✕</button>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Cliente</label>
+            <input class="form-input" id="ce-cliente">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Ciudad</label>
+            <input class="form-input" id="ce-ciudad">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Monto</label>
+            <input class="form-input" id="ce-monto" type="text" oninput="formatNum(this)">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Transportadora</label>
+            <select class="form-select" id="ce-transp">
+              <option value="">—</option>
+              <option>Servientrega</option>
+              <option>Coordinadora</option>
+              <option>Envia</option>
+              <option>Interrapidísimo</option>
+            </select>
+          </div>
+         <div class="form-group full">
+            <label class="form-label">Estado del Pedido</label>
+            <select class="form-select" id="ce-estado" onchange="cambioEstadoContra()">
+              <option value="preparacion">📋 En Preparación</option>
+              <option value="enviado">📤 Enviado</option>
+              <option value="entregado">✅ Entregado</option>
+              <option value="liquidado">💰 Liquidado</option>
+            </select>
+          </div>
+          <div class="form-group full" id="ce-cuenta-wrap" style="display:none;">
+            <label class="form-label">¿A qué cuenta llegó el dinero?</label>
+            <select class="form-select" id="ce-cuenta">
+              <option value="nequi">nequi</option>
+              <option value="bancolombia">Bancolombia</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-footer">
+          <button class="btn btn-secondary" onclick="cerrarModalContraEdit()">Cancelar</button>
+          <button class="btn btn-primary" onclick="guardarContraEdit()">💾 Guardar</button>
+        </div>
+      </div>
+    </div>
+    <!-- MODAL CLIENTE -->
+    <div class="modal-overlay" id="modal-cliente">
+      <div class="modal">
+        <div class="modal-head">
+          <h3 id="cli-modal-title">👤 Nuevo Cliente</h3>
+          <button class="modal-close" onclick="cerrarModalCliente()">✕</button>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Nombre</label>
+            <input class="form-input" id="cli-nombre" placeholder="Nombre">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Apellido</label>
+            <input class="form-input" id="cli-apellido" placeholder="Apellido">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Ciudad</label>
+            <input class="form-input" id="cli-ciudad" placeholder="Ciudad">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Número</label>
+            <input class="form-input" id="cli-numero" placeholder="300 123 4567">
+          </div>
+          <div class="form-group full">
+            <label class="form-label">Dirección</label>
+            <input class="form-input" id="cli-direccion" placeholder="Calle, carrera, etc.">
+          </div>
+        </div>
+        <div class="form-footer">
+          <button class="btn btn-secondary" onclick="cerrarModalCliente()">Cancelar</button>
+          <button class="btn btn-primary" onclick="guardarCliente()">💾 Guardar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL PROVEEDOR -->
+    <div class="modal-overlay" id="modal-proveedor">
+      <div class="modal">
+        <div class="modal-head">
+          <h3 id="prov-modal-title">🏭 Nuevo Proveedor</h3>
+          <button class="modal-close" onclick="cerrarModalProveedor()">✕</button>
+        </div>
+        <div class="form-grid">
+          <div class="form-group full">
+            <label class="form-label">Nombre de la Empresa</label>
+            <input class="form-input" id="prov-nombre" placeholder="Nombre de la empresa">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Ciudad</label>
+            <input class="form-input" id="prov-ciudad" placeholder="Ciudad">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Número (opcional)</label>
+            <input class="form-input" id="prov-numero" placeholder="601 234 5678">
+          </div>
+        </div>
+        <div class="form-footer">
+          <button class="btn btn-secondary" onclick="cerrarModalProveedor()">Cancelar</button>
+          <button class="btn btn-primary" onclick="guardarProveedor()">💾 Guardar</button>
+        </div>
+      </div>
+    </div>
+    <!-- MODAL COTIZACIÓN -->
+    <div class="modal-overlay" id="modal-cotizacion">
+      <div class="modal">
+        <div class="modal-head">
+          <h3 id="cot-modal-title">📋 Nueva Cotización</h3>
+          <button class="modal-close" onclick="cerrarModalCotizacion()">✕</button>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group full autocomplete-wrap">
+            <label class="form-label">Proveedor</label>
+            <input class="form-input" id="cot-proveedor" placeholder="Buscar proveedor..." oninput="buscarProveedorCotiz(this.value)" autocomplete="off">
+            <div class="autocomplete-list" id="cot-proveedor-ac"></div>
+            <span class="form-hint" id="cot-proveedor-hint"></span>
+          </div>
+        </div>
+
+        <!-- Lista de items -->
+        <div id="cot-items-list" style="margin-top:14px;"></div>
+
+        <button type="button" class="btn btn-secondary" style="width:100%;margin-top:6px;" onclick="agregarItemCotiz()">➕ Agregar otro producto</button>
+
+        <div class="multi-items-total">
+          <span>TOTAL PLANEADO</span>
+          <span id="cot-total-general">$0</span>
+        </div>
+
+        <div class="form-grid" style="margin-top:14px;">
+          <div class="form-group">
+            <label class="form-label">Mes objetivo</label>
+            <select class="form-select" id="cot-mes-objetivo">
+              <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+              <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+              <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+              <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Año objetivo</label>
+            <select class="form-select" id="cot-anio-objetivo">
+              <option value="2026">2026</option>
+              <option value="2027">2027</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-footer">
+          <button class="btn btn-secondary" onclick="cerrarModalCotizacion()">Cancelar</button>
+          <button class="btn btn-primary" onclick="guardarCotizacion()">💾 Guardar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL META DE VENTAS -->
+    <div class="modal-overlay" id="modal-meta">
+      <div class="modal" style="max-width:380px;">
+        <div class="modal-head">
+          <h3>🎯 Editar Meta de Ventas</h3>
+          <button class="modal-close" onclick="cerrarModalMeta()">✕</button>
+        </div>
+        <div class="form-grid">
+          <div class="form-group full">
+            <label class="form-label">Meta del Mes</label>
+            <input class="form-input" id="meta-input" type="text" placeholder="0" oninput="formatNum(this)">
+          </div>
+        </div>
+        <div class="form-footer">
+          <button class="btn btn-secondary" onclick="cerrarModalMeta()">Cancelar</button>
+          <button class="btn btn-primary" onclick="guardarMeta()">💾 Guardar</button>
+        </div>
+      </div>
+    </div>
+<!-- BOTÓN FLOTANTE: Configurar saldo inicial (solo primera vez) -->
+<button class="fab-saldo-inicial" id="fab-saldo-inicial" onclick="abrirModalSaldoInicial()" style="display:none;">⚙️ Saldo Inicial</button>
+<!-- BOTÓN RESUMEN FLOTANTE -->
+      <button class="fab-resumen" onclick="toggleResumen()">📊 Resumen</button>
+      <div class="resumen-panel" id="resumen-panel">
+        <div style="font-family:'Nunito',sans-serif;font-weight:900;color:var(--fucsia);font-size:13px;margin-bottom:8px;">RESUMEN DE CAJA</div>
+       <div class="resumen-item"><span>💵 Efectivo</span><strong id="r-efectivo">$0</strong></div>
+        <div class="resumen-item"><span>nequi</span><strong id="r-nequi">$0</strong></div>
+        <div class="resumen-item"><span>Bancolombia</span><strong id="r-banco">$0</strong></div>
+        <div class="resumen-item"><span>📦 Contra Entregas</span><strong id="r-transito" style="color:var(--amarillo);">$0</strong></div>
+        <div class="resumen-item"><span>📋 Pendientes</span><strong id="r-pendientes" style="color:var(--rojo);">$0</strong></div>
+        <div class="resumen-total"><span>NETO DISPONIBLE</span><span id="r-neto">$0</span></div>
+      </div>
+    <!-- ===================== PLACEHOLDERS RESTANTES ===================== -->
+  <div class="view" id="view-ventas">
+      <div class="mod-head">
+        <h2>🛍 REGISTRO DE VENTAS</h2>
+        <div class="mod-head-sub">Historial de ventas y pedidos</div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Ventas del Periodo</div>
+          <div class="kpi-value" id="kpi-ventas-total">$0</div>
+          <div class="kpi-sub" id="kpi-ventas-count">0 ventas registradas</div>
+        </div>
+        <div class="kpi-card fucsia">
+          <div class="kpi-label">Efectivo</div>
+          <div class="kpi-value" id="kpi-ventas-efectivo">$0</div>
+          <div class="kpi-sub">Va directo a Caja</div>
+        </div>
+        <div class="kpi-card verde">
+          <div class="kpi-label">Transferencia</div>
+          <div class="kpi-value" id="kpi-ventas-transferencia">$0</div>
+          <div class="kpi-sub">Nequi / Bancolombia</div>
+        </div>
+        <div class="kpi-card amarillo">
+          <div class="kpi-label">Contra Entrega</div>
+          <div class="kpi-value" id="kpi-ventas-contra">$0</div>
+          <div class="kpi-sub">En preparación</div>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="toolbar-left">
+         <input class="search-input" placeholder="Buscar por cliente..." oninput="buscarVentas(this.value)">
+          <div class="filtro-fecha">
+            <select id="f-mes" onchange="filtrarVentas()">
+              <option value="">Todos los meses</option>
+              <option value="1">Enero</option><option value="2">Febrero</option>
+              <option value="3">Marzo</option><option value="4">Abril</option>
+              <option value="5">Mayo</option><option value="6">Junio</option>
+              <option value="7">Julio</option><option value="8">Agosto</option>
+              <option value="9">Septiembre</option><option value="10">Octubre</option>
+              <option value="11">Noviembre</option><option value="12">Diciembre</option>
+            </select>
+            <select id="f-anio" onchange="filtrarVentas()">
+              <option value="2026">2026</option>
+              <option value="2025">2025</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="abrirModalVenta()">＋ Nueva Venta</button>
+      </div>
+
+      <div class="section-box" id="ventas-lista">
+        <div style="padding:30px;text-align:center;color:var(--gris-60);font-size:13px;">Cargando...</div>
+      </div>
+    </div>
+   <div class="view" id="view-compras">
+      <div class="mod-head">
+        <h2>🛒 REGISTRO DE COMPRAS</h2>
+        <div class="mod-head-sub">Órdenes a proveedores</div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Compras del Mes</div>
+          <div class="kpi-value" id="kpi-compras-total">$0</div>
+          <div class="kpi-sub" id="kpi-compras-count">0 órdenes registradas</div>
+        </div>
+        <div class="kpi-card fucsia">
+          <div class="kpi-label">De Contado</div>
+          <div class="kpi-value" id="kpi-compras-contado">$0</div>
+          <div class="kpi-sub">Pagado al momento</div>
+        </div>
+        <div class="kpi-card amarillo">
+          <div class="kpi-label">A Crédito</div>
+          <div class="kpi-value" id="kpi-compras-credito">$0</div>
+          <div class="kpi-sub">Pendiente por pagar</div>
+        </div>
+        <div class="kpi-card verde">
+          <div class="kpi-label">Unidades Ingresadas</div>
+          <div class="kpi-value" id="kpi-compras-unidades">0</div>
+          <div class="kpi-sub">Suman al stock</div>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <input class="search-input" placeholder="Buscar por proveedor..." oninput="buscarCompras(this.value)">
+          <div class="filtro-fecha">
+            <select id="c-mes" onchange="filtrarCompras()">
+              <option value="">Todos los meses</option>
+              <option value="1">Enero</option><option value="2">Febrero</option>
+              <option value="3">Marzo</option><option value="4">Abril</option>
+              <option value="5">Mayo</option><option value="6">Junio</option>
+              <option value="7">Julio</option><option value="8">Agosto</option>
+              <option value="9">Septiembre</option><option value="10">Octubre</option>
+              <option value="11">Noviembre</option><option value="12">Diciembre</option>
+            </select>
+            <select id="c-anio" onchange="filtrarCompras()">
+              <option value="2026">2026</option>
+              <option value="2025">2025</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="abrirModalCompra()">＋ Nueva Compra</button>
+      </div>
+
+      <div class="section-box" id="compras-lista">
+        <div style="padding:30px;text-align:center;color:var(--gris-60);font-size:13px;">Cargando...</div>
+      </div>
+    </div>
+  <div class="view" id="view-gastos">
+      <div class="mod-head">
+        <h2>💸 GASTOS</h2>
+        <div class="mod-head-sub">Empaque, envíos, ajustes y más</div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Gastos del Mes</div>
+          <div class="kpi-value" id="kpi-gastos-total">$0</div>
+          <div class="kpi-sub" id="kpi-gastos-count">0 movimientos</div>
+        </div>
+        <div class="kpi-card fucsia">
+          <div class="kpi-label">Mayor Categoría</div>
+          <div class="kpi-value" style="font-size:16px;" id="kpi-gastos-mayor-cat">—</div>
+          <div class="kpi-sub" id="kpi-gastos-mayor-val">$0</div>
+        </div>
+        <div class="kpi-card amarillo">
+          <div class="kpi-label">Promedio Diario</div>
+          <div class="kpi-value" id="kpi-gastos-promedio">$0</div>
+          <div class="kpi-sub">Sobre 30 días</div>
+        </div>
+        <div class="kpi-card verde">
+          <div class="kpi-label">Gasto más Bajo</div>
+          <div class="kpi-value" id="kpi-gastos-bajo">$0</div>
+          <div class="kpi-sub" id="kpi-gastos-bajo-cat">—</div>
+        </div>
+      </div>
+
+      <div class="gastos-layout">
+
+        <!-- COLUMNA IZQUIERDA: lista y formulario -->
+        <div>
+          <div class="toolbar">
+            <div class="toolbar-left">
+              <input class="search-input" placeholder="Buscar concepto...">
+              <div class="filtro-fecha">
+                <select id="g-mes" onchange="filtrarGastos()">
+                  <option value="">Todos los meses</option>
+                  <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+                  <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+                  <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+                  <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+                </select>
+                <select id="g-anio" onchange="filtrarGastos()">
+                  <option value="2026">2026</option>
+                  <option value="2025">2025</option>
+                </select>
+              </div>
+            </div>
+            <button class="btn btn-primary" onclick="abrirModalGasto()">＋ Nuevo Gasto</button>
+          </div>
+
+          <div class="section-box">
+            <table class="desktop-table">
+              <thead>
+                <tr>
+                  <th>Concepto</th><th>Tipo</th><th style="text-align:right;">Valor</th><th>Fecha</th><th style="text-align:center;">Acción</th>
+                </tr>
+              </thead>
+              <tbody id="gastos-tbody">
+                <tr>
+                  <td><strong>Cajas y bolsas</strong></td>
+                  <td><span class="gasto-tipo-badge gasto-empaque">📦 Empaque</span></td>
+                  <td style="text-align:right;font-weight:700;">$80.000</td>
+                  <td>05/06/2026</td>
+                  <td style="text-align:center;"><button class="btn-icon" onclick="editarGasto(this)">✏️</button><button class="btn-icon" onclick="eliminarGasto(this)">🗑️</button></td>
+                </tr>
+                <tr>
+                  <td><strong>Domicilio pedido Bogotá</strong></td>
+                  <td><span class="gasto-tipo-badge gasto-envios">Envíos/Domicilios</span></td>
+                  <td style="text-align:right;font-weight:700;">$18.000</td>
+                  <td>06/06/2026</td>
+                   <td style="text-align:center;"><button class="btn-icon" onclick="editarGasto(this)">✏️</button><button class="btn-icon" onclick="eliminarGasto(this)">🗑️</button></td>
+                </tr>
+                <tr>
+                  <td><strong>Descuento cliente fiel</strong></td>
+                  <td><span class="gasto-tipo-badge gasto-descuento">🏷️ Descuento</span></td>
+                  <td style="text-align:right;font-weight:700;">$15.000</td>
+                  <td>07/06/2026</td>
+                   <td style="text-align:center;"><button class="btn-icon" onclick="editarGasto(this)">✏️</button><button class="btn-icon" onclick="eliminarGasto(this)">🗑️</button></td>
+                </tr>
+                <tr>
+                  <td><strong>Ajuste inventario</strong></td>
+                  <td><span class="gasto-tipo-badge gasto-ajustes">⚙️ Ajustes</span></td>
+                  <td style="text-align:right;font-weight:700;">$12.000</td>
+                  <td>08/06/2026</td>
+                   <td style="text-align:center;"><button class="btn-icon" onclick="editarGasto(this)">✏️</button><button class="btn-icon" onclick="eliminarGasto(this)">🗑️</button></td>
+                </tr>
+                <tr>
+                  <td><strong>Bolsas de regalo</strong></td>
+                  <td><span class="gasto-tipo-badge gasto-otros">🔹 Otros</span></td>
+                  <td style="text-align:right;font-weight:700;">$25.000</td>
+                  <td>09/06/2026</td>
+                   <td style="text-align:center;"><button class="btn-icon" onclick="editarGasto(this)">✏️</button><button class="btn-icon" onclick="eliminarGasto(this)">🗑️</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- COLUMNA DERECHA: gráficos (siguiente paso) -->
+        <div id="gastos-graficos">
+
+          <div class="gasto-resumen-card">
+            <div class="gasto-resumen-title">📊 Gastos por Tipo</div>
+            <div id="grafico-gastos-tipo">
+              <div style="text-align:center;color:var(--gris-60);font-size:13px;padding:20px;">Cargando...</div>
+            </div>
+          </div> <!-- cierra .gasto-resumen-card -->
+
+        </div> <!-- cierra #gastos-graficos -->
+
+      </div> <!-- cierra .gastos-layout -->
+    </div> <!-- cierra view-gastos -->
+   <div class="view" id="view-cotizaciones">
+  <div class="mod-head">
+    <h2>📋 COTIZACIONES</h2>
+    <div class="mod-head-sub">Pedidos a proveedores y simulador de facturas</div>
+  </div>
+
+  <div class="tabs" style="margin-bottom:14px;">
+    <div class="tab active" onclick="cotizTab('proveedores',this)">🏭 Pedidos a Proveedores</div>
+    <div class="tab" onclick="cotizTab('clientes',this)">👤 Simulador de Factura</div>
+  </div>
+
+  <!-- PESTAÑA PROVEEDORES -->
+  <div id="cotiz-tab-proveedores">
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <input class="search-input" placeholder="Buscar por proveedor...">
+        <div class="filtro-fecha">
+          <select id="cot-mes" onchange="filtrarCotizaciones()">
+            <option value="">Todos los meses</option>
+            <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+            <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+            <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+            <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+          </select>
+          <select id="cot-anio" onchange="filtrarCotizaciones()">
+            <option value="2026">2026</option>
+            <option value="2025">2025</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="abrirModalCotizacion()">＋ Nueva Cotización</button>
+    </div>
+
+    <div class="section-box" id="cotizaciones-lista">
+      <!-- COTIZACIÓN EJEMPLO -->
+      <div class="venta-grupo cotiz-row" data-proveedor="Cosméticos del Valle" data-mes="7" data-anio="2026">
+        <div class="venta-grupo-head multi" onclick="toggleVentaDetalle(this)">
+          <div class="venta-cliente">
+            <span class="venta-badge-items"> 2 productos</span>
+            <div class="venta-cliente-nombre">Cosméticos del Valle</div>
+          </div>
+          <div class="venta-grupo-meta">
+            <span class="cotiz-mes-badge">📅 Julio 2026</span>
+            <span class="venta-grupo-total">$310.000</span>
+            <input type="checkbox" class="cotiz-check" title="Marcar como comprado" onchange="toggleCotizComprado(this)">
+            <button class="btn-icon" onclick="editarCotizacion(this)">✏️</button>
+            <button class="btn-icon" onclick="eliminarCotizacion(this)">🗑️</button>
+            <span class="venta-chev">▼</span>
+          </div>
+        </div>
+        <div class="venta-detalle collapsed">
+          <div class="venta-item-row">
+            <div class="venta-item-thumb">💧</div>
+            <div class="venta-item-info">Ampolla Anticaída x10</div>
+            <div class="venta-item-total">$150.000</div>
+          </div>
+          <div class="venta-item-row">
+            <div class="venta-item-thumb">💧</div>
+            <div class="venta-item-info">Ampolla Embrión de Pato x10</div>
+            <div class="venta-item-total">$160.000</div>
+          </div>
+        </div>
+        <div class="venta-detalle-data" style="display:none;" data-items='[{"ref":"ATS-001","nombre":"Ampolla Anticaída","costo":15000,"cantidad":10,"icon":"💧"},{"ref":"ATS-002","nombre":"Ampolla Embrión de Pato","costo":16000,"cantidad":10,"icon":"💧"}]'></div>
+      </div>
+    </div>
+  </div><!-- cierra cotiz-tab-proveedores -->
+
+  <!-- PESTAÑA SIMULADOR -->
+  <div id="cotiz-tab-clientes" style="display:none;">
+    <div class="toolbar">
+      <strong style="font-family:'Nunito',sans-serif;font-size:13px;">👤 Simular Factura para Cliente</strong>
+      <button class="btn btn-primary" onclick="abrirModalSimulador()">➕ Nueva Simulación</button>
+    </div>
+    <div class="section-box" id="simulador-lista">
+      <div style="padding:30px;text-align:center;color:var(--gris-60);font-size:13px;">
+        Las simulaciones no afectan inventario ni caja. Solo generan una factura de vista previa.
+      </div>
+    </div>
+  </div>
+
+</div>
+    <div class="view" id="view-contactos">
+      <div class="mod-head">
+        <h2>👥 CONTACTOS</h2>
+        <div class="mod-head-sub">Clientes y proveedores</div>
+      </div>
+
+      <div class="tabs" style="margin-bottom:14px;">
+        <div class="tab active" onclick="contactoTab('clientes',this)">👤 Clientes</div>
+        <div class="tab" onclick="contactoTab('proveedores',this)">🏭 Proveedores</div>
+      </div>
+
+      <!-- TAB CLIENTES -->
+      <div id="contacto-tab-clientes">
+        <div class="toolbar">
+          <strong style="font-family:'Nunito',sans-serif;font-size:13px;">👤 Clientes</strong>
+          <button class="btn btn-primary" onclick="abrirModalCliente()">➕ Nuevo Cliente</button>
+        </div>
+        <div class="section-box" id="clientes-lista"></div>
+      </div>
+
+      <!-- TAB PROVEEDORES -->
+      <div id="contacto-tab-proveedores" style="display:none;">
+        <div class="toolbar">
+          <strong style="font-family:'Nunito',sans-serif;font-size:13px;">🏭 Proveedores</strong>
+          <button class="btn btn-primary" onclick="abrirModalProveedor()">➕ Nuevo Proveedor</button>
+        </div>
+        <div class="section-box" id="proveedores-lista"></div>
+      </div>
+
+    </div>
+    <!-- ===================== ENVÍOS ===================== -->
+<div class="view" id="view-envios">
+  <div class="mod-head">
+    <h2>📦 SEGUIMIENTO DE ENVÍOS</h2>
+    <div class="mod-head-sub">Contra entregas y estado de despacho</div>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">En Tránsito</div>
+      <div class="kpi-value" id="env-kpi-transito">$0</div>
+      <div class="kpi-sub" id="env-kpi-transito-count">0 pedidos</div>
+    </div>
+    <div class="kpi-card verde">
+      <div class="kpi-label">Entregados Mes</div>
+      <div class="kpi-value" id="env-kpi-entregados">$0</div>
+      <div class="kpi-sub">Listos para liquidar</div>
+    </div>
+    <div class="kpi-card amarillo">
+      <div class="kpi-label">En Preparación</div>
+      <div class="kpi-value" id="env-kpi-prep">0</div>
+      <div class="kpi-sub">Pendientes despacho</div>
+    </div>
+    <div class="kpi-card fucsia">
+      <div class="kpi-label">En Camino</div>
+      <div class="kpi-value" id="env-kpi-camino">0</div>
+      <div class="kpi-sub">Viajando ahora</div>
+    </div>
+  </div>
+
+  <div class="envios-layout">
+
+    <!-- LISTA DE ENVÍOS -->
+    <div class="section-box">
+      <div class="toolbar" style="margin-bottom:0;box-shadow:none;border-radius:0;border-bottom:1px solid var(--gris-20);">
+        <strong style="font-family:'Nunito',sans-serif;font-size:13px;">📋 Pedidos activos</strong>
+        <span style="font-size:11px;color:var(--gris-60);">Click para ver en mapa</span>
+      </div>
+      <div id="envios-lista">
+        <div style="padding:30px;text-align:center;color:var(--gris-60);font-size:13px;">Cargando...</div>
+      </div>
+   </div>
+
+    <!-- MAPA -->
+    <div class="section-box" style="padding:14px;">
+      <div style="font-family:'Nunito',sans-serif;font-weight:800;font-size:13px;color:var(--gris-80);margin-bottom:10px;">🗺️ Mapa de Colombia</div>
+      <div id="env-mapa-leaflet" style="width:100%;height:420px;border-radius:12px;box-shadow:var(--shadow);z-index:1;position:relative;"></div>
+      <div id="env-mapa-info"></div>
+    </div>
+
+  </div><!-- cierra envios-layout -->
+</div><!-- cierra view-envios -->
+
+<!-- MODAL SIMULADOR FACTURA -->
+<div class="modal-overlay" id="modal-simulador">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>👤 Simulador de Factura</h3>
+      <button class="modal-close" onclick="cerrarModalSimulador()">✕</button>
+    </div>
+
+    <div class="autocomplete-wrap" style="margin-bottom:12px;">
+      <label class="form-label">Cliente</label>
+      <input class="form-input" id="sim-cliente" placeholder="Buscar cliente..."
+             oninput="buscarClienteSim(this.value)" autocomplete="off">
+      <div class="autocomplete-list" id="sim-cliente-ac"></div>
+    </div>
+
+    <div id="sim-items-list"></div>
+
+    <button type="button" class="btn btn-secondary" style="width:100%;margin-top:6px;" onclick="agregarItemSim()">➕ Agregar producto</button>
+
+    <div class="multi-items-total subtotal" style="margin-top:10px;">
+      <span>Subtotal</span><span id="sim-subtotal">$0</span>
+    </div>
+    <div class="multi-items-total">
+      <span>TOTAL</span><span id="sim-total">$0</span>
+    </div>
+
+    <div class="form-footer">
+      <button class="btn btn-secondary" onclick="cerrarModalSimulador()">Cancelar</button>
+     <button class="btn btn-primary" onclick="generarFacturaSimulada()">💾 Guardar Cotización</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL FACTURA MÓVIL -->
+<div class="modal-overlay" id="modal-factura-preview">
+  <div class="modal" style="padding:0;max-height:95vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--gris-20);position:sticky;top:0;background:#fff;z-index:10;">
+      <span style="font-weight:800;font-size:14px;color:var(--fucsia);">🧾 Factura</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-secondary" style="font-size:11px;padding:6px 12px;" onclick="descargarFacturaArchivo()">Descargar</button>
+        <button class="btn btn-secondary" style="font-size:11px;padding:6px 12px;background:#25D366;color:#fff;border:none;" onclick="compartirWhatsApp()">WhatsApp</button>
+        <button class="modal-close" onclick="cerrarFacturaPreview()">✕</button>
+      </div>
+    </div>
+    <iframe id="factura-iframe" style="width:100%;height:75vh;border:none;background:#525659;"></iframe>
+  </div>
+</div><!-- cierra modal-factura-preview -->
+
+    <!-- BOTTOM NAV MÓVIL -->
+  <div class="bottom-nav">
+    <div class="bottom-nav-item" data-view="ventas" onclick="showView('ventas')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+      <span>Ventas</span>
+    </div>
+    <div class="bottom-nav-item" data-view="compras" onclick="showView('compras')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+      <span>Compras</span>
+    </div>
+    <div class="bottom-nav-item active" data-view="dashboard" onclick="showView('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+      <span>Dashboard</span>
+    </div>
+    <div class="bottom-nav-item" data-view="gastos" onclick="showView('gastos')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      <span>Gastos</span>
+    </div>
+    <div class="bottom-nav-item" data-view="inventario" onclick="showView('inventario')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      <span>Inventario</span>
+    </div>
+  </div>
+
+  </main>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="assets/js/supabase-config.js"></script>
+<script src="assets/js/utils.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>
