@@ -1606,7 +1606,7 @@ function recalcCuadreCaja(){
   alert.classList.remove('sobra','falta');
   sub.textContent = '';
 
-  if(Math.abs(diferencia) <= 500){
+  if(Math.abs(diferencia) === 0){
     icon.textContent = '✅';
     title.textContent = '¡CAJA CUADRADA!';
   } else if(diferencia > 0){
@@ -3954,6 +3954,7 @@ async function guardarDenominacionesCaja(){
   if(elEfectivo) elEfectivo.textContent = formatCOP(totalCalculado);
   _efectivoEsperado = totalCalculado;
   recalcCuadreCaja();
+  await actualizarCuadreGlobal();
 }
 
 /* ============================================================
@@ -4940,7 +4941,7 @@ async function actualizarCuadreGlobal(){
 
   el.classList.remove('sobra','falta');
 
-if(Math.abs(diferencia) <= 500){
+if(Math.abs(diferencia) === 0){
     icon.textContent = '✅';
     title.textContent = '¡CAJA CUADRADA!';
     sub.textContent = '';
