@@ -1023,15 +1023,15 @@ function buscarClienteVenta(query){
   }
 
   const q = query.toLowerCase();
-  const resultados = CLIENTES.filter(c =>
-    (`${c.nombre} ${c.apellido || ''}`).toLowerCase().includes(q)
+ const resultados = CLIENTES.filter(c =>
+    (`${c.nombre} ${c.apellido && c.apellido !== 'null' ? c.apellido : ''}`).toLowerCase().includes(q)
   );
 
   let html = '';
 
   resultados.forEach(c => {
     html += `
-      <div class="autocomplete-item" onclick="seleccionarClienteVenta('${c.nombre} ${c.apellido}')">
+      <div class="autocomplete-item" onclick="seleccionarClienteVenta('${c.nombre}${c.apellido && c.apellido !== 'null' ? ' ' + c.apellido : ''}')">
         👤 ${c.nombre}${c.apellido && c.apellido !== 'null' ? ' ' + c.apellido : ''} <span class="ac-stock">${c.ciudad}</span>
       </div>
     `;
@@ -1479,14 +1479,17 @@ function actualizarBarraMeta(){
     setTimeout(()=>{ fill.style.width = pctDisplay + '%'; }, 100);
   });
 
-  if(pct < 50){
-    fill.classList.add(); 
+ if(pct < 40){
+    fill.classList.add('lejos');
     msg.classList.add('lejos');
-    msg.textContent = 'Aún estamos un poco lejos 💸';
-  } else if(pct < 100){
+    msg.textContent = 'Estamos un poco lejos... sigamos! 💸';
+  } else if(pct < 80){
     msg.classList.add('medio');
     msg.textContent = '¡Vamos a mitad de camino! 💪';
-  } else if(pct === 100 || (pct >= 100 && pct < 101)){
+  } else if(pct < 100){
+    msg.classList.add('medio');
+    msg.textContent = '¡Ya casi llegamos a la meta! 🔥';
+  } else if(pct >= 100 && pct < 101){
     fill.classList.add('alcanzada');
     msg.classList.add('alcanzada');
     msg.textContent = '¡Meta alcanzada! 🎉';
