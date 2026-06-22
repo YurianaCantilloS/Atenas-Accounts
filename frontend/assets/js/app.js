@@ -357,14 +357,14 @@ function seleccionarProductoItem(id, productoId){
 /** Cambia cantidad de un item y recalcula */
 function cambiarCantidadItem(id, valor){
   const item = _ventaItems.find(it => it.id === id);
-  let cantidad = Math.max(1, parseInt(valor) || 1);
+  let cantidad = parseInt(valor) || 1;
+  if(cantidad < 1) return;
   if(item.ref && cantidad > item.stock){
-    cantidad = item.stock;
     showToast(`⚠️ Solo hay ${item.stock} disponibles de "${item.nombre}"`, 'error');
+    return;
   }
   item.cantidad = cantidad;
   const row = document.querySelector(`#v-items-list [data-id="${id}"]`);
-  row.querySelector('input[type="number"]').value = cantidad;
   row.querySelector('input[readonly]').value = formatCOP(item.precio * item.cantidad);
   calcTotalGeneral();
 }
@@ -1032,7 +1032,7 @@ function buscarClienteVenta(query){
   resultados.forEach(c => {
     html += `
       <div class="autocomplete-item" onclick="seleccionarClienteVenta('${c.nombre} ${c.apellido}')">
-        👤 ${c.nombre} ${c.apellido} <span class="ac-stock">${c.ciudad}</span>
+        👤 ${c.nombre}${c.apellido && c.apellido !== 'null' ? ' ' + c.apellido : ''} <span class="ac-stock">${c.ciudad}</span>
       </div>
     `;
   });
@@ -2068,7 +2068,7 @@ function renderClientes(){
   lista.innerHTML = CLIENTES.map(c => `
     <div class="contacto-row" id="cli-${c.id}">
       <div class="contacto-info">
-        <strong>${c.nombre} ${c.apellido || ''}</strong>
+        <strong>${c.nombre}${c.apellido && c.apellido !== 'null' ? ' ' + c.apellido : ''}</strong>
         <span class="contacto-sub">${c.ciudad || '—'} · ${c.direccion || '—'} · 📞 ${c.numero || '—'}</span>
       </div>
       <div class="contacto-actions">
@@ -3937,14 +3937,23 @@ function cambioEstadoContra(){
 async function guardarDenominacionesCaja(){
   if(!CAJA) return;
   const denoms = {};
+  let totalCalculado = 0;
   const inputs = document.querySelectorAll('#panel-efectivo input[data-denom]');
   inputs.forEach(input => {
-    const d = input.dataset.denom;
-    const campo = parseInt(d) >= 1000 ? `billete_${d}` : `moneda_${d}`;
-    denoms[campo] = parseInt(input.value) || 0;
+    const d = parseInt(input.dataset.denom);
+    const cantidad = parseInt(input.value) || 0;
+    const campo = d >= 1000 ? `billete_${d}` : `moneda_${d}`;
+    denoms[campo] = cantidad;
+    totalCalculado += cantidad * d;
   });
+  denoms.efectivo = totalCalculado;
   await sb.from('caja_saldo').update(denoms).eq('id', 1);
   Object.assign(CAJA, denoms);
+  CAJA.efectivo = totalCalculado;
+  const elEfectivo = document.getElementById('kpi-efectivo-valor');
+  if(elEfectivo) elEfectivo.textContent = formatCOP(totalCalculado);
+  _efectivoEsperado = totalCalculado;
+  recalcCuadreCaja();
 }
 
 /* ============================================================
@@ -4328,8 +4337,8 @@ async function cargarTopProductos(mes, anio){
   cont.innerHTML = top3.map((p, i) => {
     const prod = PRODUCTOS.find(x => x.id === p.producto_id);
     const thumb = prod?.foto_url
-      ? `<img src="${prod.foto_url}" style="width:40px;height:40px;border-radius:8px;object-fit:cover;">`
-      : `<div class="top3-icon">${p.icono}</div>`;
+      ? `<img src="${prod.foto_url}" style="width:70px;height:70px;border-radius:12px;object-fit:cover;">`
+      : `<div class="top3-icon" style="font-size:48px;">${p.icono}</div>`;
     const ref = prod?.referencia || '';
     return `
       <div class="top3-card">
