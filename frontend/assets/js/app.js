@@ -4391,20 +4391,20 @@ async function cargarTopProductos(mes, anio){
       ? `<img src="${prod.foto_url}" style="width:70px;height:70px;border-radius:12px;object-fit:cover;">`
       : `<div class="top3-icon" style="font-size:48px;">${p.icono}</div>`;
     const ref = prod?.referencia || '';
-   return `
+  return `
       <div class="top3-card" style="padding:0;overflow:hidden;display:flex;flex-direction:column;">
         <div style="position:relative;">
           ${prod?.foto_url 
-            ? `<img src="${prod.foto_url}" style="width:100%;height:160px;object-fit:cover;display:block;">`
-            : `<div style="width:100%;height:160px;display:flex;align-items:center;justify-content:center;font-size:64px;background:var(--gris-10);">${p.icono}</div>`
+            ? `<img src="${prod.foto_url}" style="width:100%;height:120px;object-fit:cover;display:block;">`
+            : `<div style="width:100%;height:120px;display:flex;align-items:center;justify-content:center;font-size:52px;background:var(--gris-10);">${p.icono}</div>`
           }
-          <div style="position:absolute;top:8px;left:8px;font-size:20px;">${medallas[i]}</div>
         </div>
-        <div style="padding:10px 12px;text-align:center;">
-          <div class="top3-name" style="font-size:13px;margin-bottom:4px;">${p.nombre}</div>
-          ${ref ? `<span class="top3-ref">${ref}</span>` : ''}
-          <div class="top3-units" style="margin-top:6px;">${p.cantidad}</div>
-          <div class="top3-units-label">Unidades</div>
+        <div style="padding:8px 10px;text-align:center;">
+          <div class="top3-medal" style="margin-bottom:4px;">${medallas[i]}</div>
+          <div class="top3-name" style="font-size:11px;margin-bottom:3px;">${p.nombre}</div>
+          ${ref ? `<span class="top3-ref" style="font-size:9px;">${ref}</span>` : ''}
+          <div class="top3-units" style="margin-top:4px;font-size:18px;">${p.cantidad}</div>
+          <div class="top3-units-label" style="font-size:9px;">Unidades</div>
         </div>
       </div>
     `;
