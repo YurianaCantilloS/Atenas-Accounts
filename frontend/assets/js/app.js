@@ -3484,9 +3484,9 @@ async function construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPago
   pdf.rect(margin, y-6, pageW-margin*2, 9, 'F');
   pdf.setTextColor(143,138,160); pdf.setFont('helvetica','bold'); pdf.setFontSize(9);
   pdf.text('PRODUCTO', margin+3, y);
-  pdf.text('CANT.', pageW-margin-48, y, {align:'center'});
-  pdf.text('PRECIO', pageW-margin-26, y, {align:'center'});
-  pdf.text('SUBTOTAL', pageW-margin-2, y, {align:'right'});
+  pdf.text('CANT.', pageW-margin-52, y, {align:'center'});
+  pdf.text('PRECIO', pageW-margin-32, y, {align:'center'});
+  pdf.text('TOTAL', pageW-margin-2, y, {align:'right'});
   y += 11;
 
   pdf.setTextColor(26,23,48); pdf.setFont('helvetica','normal'); pdf.setFontSize(11);
@@ -3498,8 +3498,8 @@ async function construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPago
     }
     const nombreLines = pdf.splitTextToSize(it.nombre, 78);
     pdf.text(nombreLines, margin+3, y);
-    pdf.text(String(it.cantidad), pageW-margin-48, y, {align:'center'});
-    pdf.text(formatCOP(it.precio), pageW-margin-26, y, {align:'center'});
+    pdf.text(String(it.cantidad), pageW-margin-52, y, {align:'center'});
+    pdf.text(formatCOP(it.precio), pageW-margin-32, y, {align:'center'});
     pdf.setFont('helvetica','bold');
     pdf.text(formatCOP(it.subtotal), pageW-margin-2, y, {align:'right'});
     pdf.setFont('helvetica','normal');
@@ -3547,14 +3547,54 @@ pdf.setFillColor(253, 240, 248);
 }
 
 /** Muestra el PDF en el modal y prepara descarga/compartir */
-function mostrarFacturaPDF(pdfBlob, nombreArchivo){
+async function mostrarFacturaPDF(pdfBlob, nombreArchivo){
   const modal = document.getElementById('modal-factura-preview');
   const iframe = document.getElementById('factura-iframe');
-  const url = URL.createObjectURL(pdfBlob);
-  iframe.src = url + '#toolbar=0';
-  modal.classList.add('open');
   window._facturaPdfBlob = pdfBlob;
   window._facturaNombre = nombreArchivo;
+  const isMobile = window.innerWidth <= 768;
+
+  if(isMobile){
+    iframe.style.display = 'none';
+
+    // Limpiar visor anterior
+    let visor = document.getElementById('factura-img-visor');
+    if(!visor){
+      visor = document.createElement('div');
+      visor.id = 'factura-img-visor';
+      visor.style.cssText = 'overflow-y:auto;background:#525659;padding:8px;';
+      iframe.parentNode.insertBefore(visor, iframe);
+    }
+    visor.innerHTML = '<div style="text-align:center;padding:20px;color:#fff;font-size:13px;">⏳ Cargando vista previa...</div>';
+    visor.style.display = 'block';
+    modal.classList.add('open');
+
+    // Cargar pdf.js y renderizar todas las páginas
+    const url = URL.createObjectURL(pdfBlob);
+    const pdfjsLib = window['pdfjs-dist/build/pdf'];
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    
+    const pdfDoc = await pdfjsLib.getDocument(url).promise;
+    visor.innerHTML = '';
+
+    for(let i = 1; i <= pdfDoc.numPages; i++){
+      const page = await pdfDoc.getPage(i);
+      const viewport = page.getViewport({scale: 2});
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      canvas.style.cssText = 'width:100%;display:block;margin-bottom:4px;';
+      await page.render({canvasContext: canvas.getContext('2d'), viewport}).promise;
+      visor.appendChild(canvas);
+    }
+
+  } else {
+    const visor = document.getElementById('factura-img-visor');
+    if(visor) visor.style.display = 'none';
+    iframe.style.display = 'block';
+    iframe.src = URL.createObjectURL(pdfBlob) + '#toolbar=0';
+    modal.classList.add('open');
+  }
 }
 
 function descargarFacturaArchivo(){
@@ -5236,6 +5276,8 @@ function cerrarFacturaPreview(){
   document.getElementById('modal-factura-preview').classList.remove('open');
   const iframe = document.getElementById('factura-iframe');
   iframe.src = '';
+  const visor = document.getElementById('factura-img-visor');
+  if(visor){ visor.innerHTML = ''; visor.style.display = 'none'; }
 }
 
 function imprimirFacturaPreview(){
