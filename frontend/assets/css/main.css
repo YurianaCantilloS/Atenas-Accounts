@@ -405,7 +405,7 @@ html, body { height: 100%; }
 .chart-bar-fill{height:100%;border-radius:50px;min-width:4px;transition:width .4s ease;}
 .chart-bar-fill.outside span{color:var(--gris-80);position:absolute;right:-65px;font-size:12px;white-space:nowrap;}
 
-.gasto-resumen-card{background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:18px;margin-bottom:14px;}
+
 .gasto-resumen-title{font-family:'Nunito',sans-serif;font-weight:800;font-size:13px;color:var(--gris-80);margin-bottom:12px;}
 
 
@@ -438,7 +438,7 @@ html, body { height: 100%; }
 .cotiz-row.comprado{order:999;}
 .cotiz-row{transition:all .3s;}
 #cotizaciones-lista{display:flex;flex-direction:column;}
-.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;}
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:stretch;}
 @media (max-width:900px){ .dash-grid{grid-template-columns:1fr;} }
 
 .meta-card{background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:18px;margin-bottom:14px;}
@@ -649,7 +649,7 @@ html, body { height: 100%; }
  
 
 .dash-mes-select{width:auto;font-size:12px;padding:6px 12px;background:#fff;}
-.gasto-resumen-card{background:#fff;border-radius:18px;box-shadow:var(--shadow);padding:22px;}
+.gasto-resumen-card{background:#fff;border-radius:18px;box-shadow:var(--shadow);padding:22px;display:flex;flex-direction:column;height:100%;}
 .gasto-resumen-title{font-family:'Nunito',sans-serif;font-weight:900;font-size:15px;color:var(--gris-80);margin-bottom:18px;display:flex;align-items:center;gap:8px;}
 .cerrar-mes-mini{
   display:flex;flex-direction:column;align-items:flex-end;gap:5px;
