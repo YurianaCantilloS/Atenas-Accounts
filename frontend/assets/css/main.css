@@ -511,8 +511,8 @@ html, body { height: 100%; }
 .bar-chart-value{position:absolute;top:-22px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:800;color:var(--gris-80);white-space:nowrap;background:#fff;padding:2px 6px;border-radius:6px;box-shadow:var(--shadow);}
 .bar-chart-label{font-size:12px;font-weight:700;color:var(--gris-80);margin-top:10px;text-align:center;}
 
-.top3-products{display:flex;gap:14px;justify-content:space-between;}
-.top3-card{flex:1;background:var(--gris-10);border-radius:14px;padding:16px;text-align:center;position:relative;transition:transform .2s;}
+.top3-products{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;align-items:stretch;}
+.top3-card{flex:1;background:#fff;border-radius:14px;border:1.5px solid var(--gris-20);overflow:hidden;display:flex;flex-direction:column;text-align:center;position:relative;transition:transform .2s;}
 .top3-card:hover{transform:translateY(-4px);}
 .top3-medal{position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:30px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.15));}
 .top3-icon{width:64px;height:64px;border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:30px;margin:8px auto 10px;border:1px solid var(--gris-20);box-shadow:var(--shadow);}
