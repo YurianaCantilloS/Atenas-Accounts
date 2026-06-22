@@ -3571,9 +3571,12 @@ async function mostrarFacturaPDF(pdfBlob, nombreArchivo){
 
     // Cargar pdf.js y renderizar todas las páginas
     const url = URL.createObjectURL(pdfBlob);
-    const pdfjsLib = window['pdfjs-dist/build/pdf'];
+    const pdfjsLib = window.pdfjsLib;
+    if(!pdfjsLib){ 
+      visor.innerHTML = '<div style="text-align:center;padding:20px;color:#fff;">❌ Error cargando visor</div>';
+      return; 
+    }
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    
     const pdfDoc = await pdfjsLib.getDocument(url).promise;
     visor.innerHTML = '';
 
