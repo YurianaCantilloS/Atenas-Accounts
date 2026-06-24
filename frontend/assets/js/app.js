@@ -5349,3 +5349,16 @@ async function logoBase64(){
     return ''; 
   }
 }
+function buscarCliente(query){
+  const q = query.toLowerCase();
+  document.querySelectorAll('#clientes-lista .contacto-row').forEach(row => {
+    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+function buscarProveedor(query){
+  const q = query.toLowerCase();
+  document.querySelectorAll('#proveedores-lista .contacto-row').forEach(row => {
+    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}

@@ -1788,7 +1788,9 @@
       <!-- TAB CLIENTES -->
       <div id="contacto-tab-clientes">
         <div class="toolbar">
-          <strong style="font-family:'Nunito',sans-serif;font-size:13px;">👤 Clientes</strong>
+          <div class="toolbar-left">
+            <input class="search-input" placeholder="Buscar cliente..." oninput="buscarCliente(this.value)">
+          </div>
           <button class="btn btn-primary" onclick="abrirModalCliente()">➕ Nuevo Cliente</button>
         </div>
         <div class="section-box" id="clientes-lista"></div>
@@ -1796,8 +1798,10 @@
 
       <!-- TAB PROVEEDORES -->
       <div id="contacto-tab-proveedores" style="display:none;">
-        <div class="toolbar">
-          <strong style="font-family:'Nunito',sans-serif;font-size:13px;">🏭 Proveedores</strong>
+       <div class="toolbar">
+          <div class="toolbar-left">
+            <input class="search-input" placeholder="Buscar proveedor..." oninput="buscarProveedor(this.value)">
+          </div>
           <button class="btn btn-primary" onclick="abrirModalProveedor()">➕ Nuevo Proveedor</button>
         </div>
         <div class="section-box" id="proveedores-lista"></div>
