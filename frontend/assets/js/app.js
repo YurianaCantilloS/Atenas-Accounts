@@ -3395,9 +3395,11 @@ async function confirmarAbonoCompra(){
     fecha: new Date().toISOString().split('T')[0]
   });
 
-  // Actualizar saldo en compra
+ // Actualizar saldo en compra
+  const updatePayload = { saldo_credito: nuevoSaldo, fuente };
+  if(nuevoSaldo === 0) updatePayload.tipo = 'contado';
   const { error } = await sb.from('compras')
-    .update({ saldo_credito: nuevoSaldo })
+    .update(updatePayload)
     .eq('id', _abonoCompraId);
   if(error){ showToast('❌ Error: ' + error.message, 'error'); return; }
 
