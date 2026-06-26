@@ -5397,17 +5397,30 @@ async function verAbonosCompra(compraId){
   const c = COMPRAS.find(x => x.id === compraId);
   
   if(error || !data?.length){
-    showToast(`Sin abonos — Saldo pendiente: ${formatCOP(c?.saldo_credito || 0)}`, 'info');
+    showToast(`Sin abonos registrados`, 'info');
     return;
   }
 
-  const msgs = data.map(ab => 
-    `Abonaste ${formatCOP(ab.monto)} el ${new Date(ab.fecha+'T00:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'})}`
-  ).join('\n');
+  const modal = document.getElementById('modal-confirm');
+  document.getElementById('confirm-title').textContent = `📋 ${c?.proveedor_nombre || 'Proveedor'}`;
+  document.getElementById('confirm-msg').innerHTML = `
+    <div style="font-size:13px;color:var(--gris-60);margin-bottom:10px;">Saldo pendiente: <strong style="color:var(--rojo);">${formatCOP(c?.saldo_credito || 0)}</strong></div>
+    ${data.map(ab => `
+      <div style="padding:6px 0;border-bottom:1px solid var(--gris-20);font-size:13px;">
+        Abonaste <strong>${formatCOP(ab.monto)}</strong> el ${new Date(ab.fecha+'T00:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'})} desde <span style="color:var(--gris-60);">${ab.fuente}</span>
+      </div>
+    `).join('')}
+  `;
+  modal.classList.add('open');
 
-  confirmarAccion(
-    `Saldo pendiente: ${formatCOP(c?.saldo_credito || 0)}\n\n${msgs}`,
-    () => {},
-    `📋 ${c?.proveedor_nombre || 'Proveedor'}`
-  );
+  const btnOk = document.getElementById('confirm-ok');
+  const newOk = btnOk.cloneNode(true);
+  btnOk.replaceWith(newOk);
+  newOk.textContent = 'Cerrar';
+  newOk.addEventListener('click', () => modal.classList.remove('open'));
+
+  const btnCancel = document.getElementById('confirm-cancel');
+  const newCancel = btnCancel.cloneNode(true);
+  btnCancel.replaceWith(newCancel);
+  newCancel.style.display = 'none';
 }
