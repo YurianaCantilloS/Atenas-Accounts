@@ -1549,12 +1549,12 @@ async function abrirModalCerrarMes(){
 
   const [ventasRes, comprasRes, gastosRes] = await Promise.all([
     sb.from('ventas').select('total').eq('mes', mes).eq('anio', anio),
-    sb.from('compras').select('total').eq('mes', mes).eq('anio', anio),
+    sb.from('compras').select('total, tipo, es_abono').eq('mes', mes).eq('anio', anio),
     sb.from('gastos').select('valor').eq('mes', mes).eq('anio', anio)
   ]);
 
   const totalVentas = (ventasRes.data || []).reduce((acc, v) => acc + v.total, 0);
-  const totalCompras = (comprasRes.data || []).reduce((acc, c) => acc + c.total, 0);
+  const totalCompras = (comprasRes.data || []).filter(c => c.tipo === 'contado' || c.es_abono).reduce((acc, c) => acc + c.total, 0);
   const totalGastos = (gastosRes.data || []).reduce((acc, g) => acc + g.valor, 0);
   const utilidad = totalVentas - totalCompras - totalGastos;
 
@@ -2841,6 +2841,7 @@ async function cargarCompras(mes, anio){
     .select('*, compra_items(*)')
     .eq('mes', m)
     .eq('anio', a)
+    .or('es_abono.is.null,es_abono.eq.false')
     .order('created_at', { ascending: false });
 
   if(error){ showToast('❌ Error cargando compras', 'error'); return; }
@@ -3387,8 +3388,26 @@ async function confirmarAbonoCompra(){
     .eq('id', _abonoCompraId);
   if(error){ showToast('❌ Error: ' + error.message, 'error'); return; }
 
-  // Restar de caja
+ // Restar de caja
   await actualizarSaldoCaja(fuente, -monto, `Abono compra — ${formatCOP(monto)}`);
+
+  // Registrar como compra de contado en el mes actual para que reste de utilidad
+  const hoy = new Date();
+  await sb.from('compras').insert({
+    proveedor_id: COMPRAS.find(x=>x.id===_abonoCompraId)?.proveedor_id || null,
+    proveedor_nombre: COMPRAS.find(x=>x.id===_abonoCompraId)?.proveedor_nombre || '',
+    tipo: 'contado',
+    fuente,
+    subtotal: monto,
+    descuento: 0,
+    total: monto,
+    saldo_credito: 0,
+    fecha: hoy.toISOString().split('T')[0],
+    mes: hoy.getMonth() + 1,
+    anio: hoy.getFullYear(),
+    es_abono: true,
+    compra_origen_id: _abonoCompraId
+  });
 
   if(nuevoSaldo === 0){
     showToast(`✅ Compra pagada completamente`, 'success');
@@ -4327,7 +4346,7 @@ async function cargarDashboard(mes, anio){
   // Cargar ventas, compras y gastos del mes
   const [ventasRes, comprasRes, gastosRes] = await Promise.all([
     sb.from('ventas').select('total, fecha, cliente_nombre, cliente_id').eq('mes', m).eq('anio', a),
-   sb.from('compras').select('total, tipo').eq('mes', m).eq('anio', a),
+   sb.from('compras').select('total, tipo, es_abono').eq('mes', m).eq('anio', a),
     sb.from('gastos').select('valor').eq('mes', m).eq('anio', a)
   ]);
 
@@ -4336,7 +4355,7 @@ async function cargarDashboard(mes, anio){
   const gastos = gastosRes.data || [];
 
   const totalVentas = ventas.reduce((acc, v) => acc + v.total, 0);
-const totalCompras = compras.filter(c => c.tipo === 'contado').reduce((acc, c) => acc + c.total, 0);
+const totalCompras = compras.filter(c => c.tipo === 'contado' || c.es_abono).reduce((acc, c) => acc + c.total, 0);
   const totalGastos = gastos.reduce((acc, g) => acc + g.valor, 0);
   const utilidad = totalVentas - totalCompras - totalGastos;
   const margen = totalVentas > 0 ? (utilidad / totalVentas * 100) : 0;
@@ -4554,7 +4573,7 @@ async function confirmarCierreMes(){
 
   const [ventasRes, comprasRes, gastosRes, venta_itemsRes] = await Promise.all([
     sb.from('ventas').select('total, cliente_nombre, venta_items(producto_id, producto_nombre, cantidad)').eq('mes', mes).eq('anio', anio),
-    sb.from('compras').select('total').eq('mes', mes).eq('anio', anio),
+    sb.from('compras').select('total, tipo, es_abono').eq('mes', mes).eq('anio', anio),
     sb.from('gastos').select('valor, tipo').eq('mes', mes).eq('anio', anio),
     sb.from('venta_items').select('producto_id, producto_nombre, cantidad')
   ]);
@@ -4564,7 +4583,7 @@ async function confirmarCierreMes(){
   const gastos = gastosRes.data || [];
 
   const totalVentas = ventas.reduce((acc, v) => acc + v.total, 0);
-  const totalCompras = compras.reduce((acc, c) => acc + c.total, 0);
+ const totalCompras = compras.filter(c => c.tipo === 'contado' || c.es_abono).reduce((acc, c) => acc + c.total, 0);
   const totalGastos = gastos.reduce((acc, g) => acc + g.valor, 0);
   const utilidad = totalVentas - totalCompras - totalGastos;
 
@@ -4978,12 +4997,12 @@ async function actualizarCuadreGlobal(){
 
   const [ventasRes, comprasRes, gastosRes] = await Promise.all([
     sb.from('ventas').select('total').eq('mes', mes).eq('anio', anio),
-    sb.from('compras').select('total, tipo').eq('mes', mes).eq('anio', anio),
+    sb.from('compras').select('total, tipo, es_abono').eq('mes', mes).eq('anio', anio),
     sb.from('gastos').select('valor').eq('mes', mes).eq('anio', anio)
   ]);
 
   const totalVentas = (ventasRes.data||[]).reduce((a,v)=>a+v.total,0);
-  const totalCompras = (comprasRes.data||[]).filter(c=>c.tipo==='contado').reduce((a,c)=>a+c.total,0);
+ const totalCompras = (comprasRes.data||[]).filter(c=>c.tipo==='contado' || c.es_abono).reduce((a,c)=>a+c.total,0);
   const totalGastos = (gastosRes.data||[]).reduce((a,g)=>a+g.valor,0);
   const utilidad = totalVentas - totalCompras - totalGastos;
 
@@ -5375,22 +5394,20 @@ async function verAbonosCompra(compraId){
     .select('*').eq('compra_id', compraId)
     .order('created_at', {ascending: false});
 
+  const c = COMPRAS.find(x => x.id === compraId);
+  
   if(error || !data?.length){
-    showToast('Sin abonos registrados', 'info');
+    showToast(`Sin abonos — Saldo pendiente: ${formatCOP(c?.saldo_credito || 0)}`, 'info');
     return;
   }
 
-  const c = COMPRAS.find(x => x.id === compraId);
-  const totalAbonado = data.reduce((a, ab) => a + ab.monto, 0);
+  const msgs = data.map(ab => 
+    `Abonaste ${formatCOP(ab.monto)} el ${new Date(ab.fecha+'T00:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'})}`
+  ).join('\n');
 
   confirmarAccion(
-    `Proveedor: ${c?.proveedor_nombre || '—'}\n` +
-    `Total compra: ${formatCOP(c?.total || 0)}\n` +
-    `Total abonado: ${formatCOP(totalAbonado)}\n` +
-    `Saldo pendiente: ${formatCOP(c?.saldo_credito || 0)}\n\n` +
-    `Abonos:\n` +
-    data.map(ab => `• ${ab.fecha} — ${formatCOP(ab.monto)} (${ab.fuente})`).join('\n'),
+    `Saldo pendiente: ${formatCOP(c?.saldo_credito || 0)}\n\n${msgs}`,
     () => {},
-    '📋 Historial de Abonos'
+    `📋 ${c?.proveedor_nombre || 'Proveedor'}`
   );
 }
