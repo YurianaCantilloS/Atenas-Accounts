@@ -2771,6 +2771,14 @@ function eliminarCompra(id){
   confirmarAccion('¿Eliminar esta compra?', async () => {
     const { data: c } = await sb.from('compras').select('*').eq('id', id).single();
 
+   // Revertir abonos a caja si era crédito con abonos
+    if(c && c.tipo === 'credito'){
+      const { data: abonos } = await sb.from('abonos_compras').select('*').eq('compra_id', id);
+      for(const ab of (abonos || [])){
+        await actualizarSaldoCaja(ab.fuente, ab.monto, `Reverso abono — ${c.proveedor_nombre}`);
+      }
+    }
+
     if(c && c.tipo === 'contado'){
       const fuente = (c.fuente || 'efectivo').toLowerCase();
       const { data: cajaActual } = await sb.from('caja_saldo').select('*').eq('id',1).single();
@@ -2790,6 +2798,11 @@ function eliminarCompra(id){
       }
     }
 
+    // Borrar abonos del historial
+    await sb.from('abonos_compras').delete().eq('compra_id', id);
+    // Borrar registros es_abono que afectan utilidad
+    await sb.from('compras').delete().eq('es_abono', true).eq('compra_origen_id', id);
+    // Borrar items y compra principal
     await sb.from('compra_items').delete().eq('compra_id', id);
     await sb.from('compras').delete().eq('id', id);
     showToast('🗑️ Compra eliminada', 'info');
