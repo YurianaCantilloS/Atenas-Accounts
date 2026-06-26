@@ -2939,7 +2939,8 @@ function renderCompras(){
               <span class="venta-grupo-total">${formatCOP(c.total)}</span>
               <span class="venta-chev">▼</span>
               <button class="btn-icon" onclick="editarCompra(this)" title="Editar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-              ${c.tipo === 'credito' && c.saldo_credito > 0 ? `<button class="btn-icon" onclick="abrirModalAbonoCompra('${c.id}', ${c.saldo_credito})" style="color:var(--verde);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></button>` : ''}
+             ${c.tipo === 'credito' && c.saldo_credito > 0 ? `<button class="btn-icon" onclick="abrirModalAbonoCompra('${c.id}', ${c.saldo_credito})" style="color:var(--verde);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></button>` : ''}
+              ${c.tipo === 'credito' ? `<button class="btn-icon" onclick="verAbonosCompra('${c.id}')" title="Historial abonos" style="color:var(--gris-60);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></button>` : ''}
               <button class="btn-icon" onclick="eliminarCompra('${c.id}')" style="color:var(--rojo);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
             </div>
           </div>
@@ -2959,7 +2960,9 @@ function renderCompras(){
               <span style="font-size:11px;color:var(--gris-60);">${new Date(c.fecha+'T00:00:00').toLocaleDateString('es-CO')}</span>
               <span class="venta-grupo-total">${formatCOP(c.total)}</span>
               <button class="btn-icon" onclick="editarCompra(this)" title="Editar"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-              ${c.tipo === 'credito' && c.saldo_credito > 0 ? `<button class="btn-icon" onclick="abrirModalAbonoCompra('${c.id}', ${c.saldo_credito})" style="color:var(--verde);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></button>` : ''}
+             ${c.tipo === 'credito' && c.saldo_credito > 0 ? `<button class="btn-icon" onclick="abrirModalAbonoCompra('${c.id}', ${c.saldo_credito})" style="color:var(--verde);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></button>` : ''}
+              ${c.tipo === 'credito' ? `<button class="btn-icon" onclick="verAbonosCompra('${c.id}')" title="Historial abonos" style="color:var(--gris-60);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></button>` : ''}
+            
               <button class="btn-icon" onclick="eliminarCompra('${c.id}')" style="color:var(--rojo);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
             </div>
           </div>
@@ -3363,10 +3366,7 @@ async function confirmarAbonoCompra(){
   const monto = rawNum(document.getElementById('abono-compra-monto'));
   const fuente = document.getElementById('abono-compra-fuente').value;
 
-  if(monto <= 0){
-    showToast('⚠️ Ingresa un monto válido', 'error');
-    return;
-  }
+  if(monto <= 0){ showToast('⚠️ Ingresa un monto válido', 'error'); return; }
   if(monto > _abonoCompraSaldo){
     showToast(`⚠️ El abono no puede ser mayor al saldo (${formatCOP(_abonoCompraSaldo)})`, 'error');
     return;
@@ -3374,17 +3374,24 @@ async function confirmarAbonoCompra(){
 
   const nuevoSaldo = _abonoCompraSaldo - monto;
 
+  // Guardar abono en historial
+  await sb.from('abonos_compras').insert({
+    compra_id: _abonoCompraId,
+    monto, fuente,
+    fecha: new Date().toISOString().split('T')[0]
+  });
+
+  // Actualizar saldo en compra
   const { error } = await sb.from('compras')
     .update({ saldo_credito: nuevoSaldo })
     .eq('id', _abonoCompraId);
-
   if(error){ showToast('❌ Error: ' + error.message, 'error'); return; }
 
-  // Restar de caja según fuente
+  // Restar de caja
   await actualizarSaldoCaja(fuente, -monto, `Abono compra — ${formatCOP(monto)}`);
 
   if(nuevoSaldo === 0){
-    showToast(`✅ Compra pagada completamente — ${formatCOP(monto)} pagados desde ${fuente}`, 'success');
+    showToast(`✅ Compra pagada completamente`, 'success');
   } else {
     showToast(`✅ Abono de ${formatCOP(monto)} — Saldo restante: ${formatCOP(nuevoSaldo)}`, 'success');
   }
@@ -5361,4 +5368,29 @@ function buscarProveedor(query){
   document.querySelectorAll('#proveedores-lista .contacto-row').forEach(row => {
     row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
   });
+}
+
+async function verAbonosCompra(compraId){
+  const { data, error } = await sb.from('abonos_compras')
+    .select('*').eq('compra_id', compraId)
+    .order('created_at', {ascending: false});
+
+  if(error || !data?.length){
+    showToast('Sin abonos registrados', 'info');
+    return;
+  }
+
+  const c = COMPRAS.find(x => x.id === compraId);
+  const totalAbonado = data.reduce((a, ab) => a + ab.monto, 0);
+
+  confirmarAccion(
+    `Proveedor: ${c?.proveedor_nombre || '—'}\n` +
+    `Total compra: ${formatCOP(c?.total || 0)}\n` +
+    `Total abonado: ${formatCOP(totalAbonado)}\n` +
+    `Saldo pendiente: ${formatCOP(c?.saldo_credito || 0)}\n\n` +
+    `Abonos:\n` +
+    data.map(ab => `• ${ab.fecha} — ${formatCOP(ab.monto)} (${ab.fuente})`).join('\n'),
+    () => {},
+    '📋 Historial de Abonos'
+  );
 }
