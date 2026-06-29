@@ -203,41 +203,30 @@ tbody tr:hover{background:var(--celeste-light);}
   background:repeating-linear-gradient(45deg,rgba(255,255,255,.04) 0px,rgba(255,255,255,.04) 1px,transparent 1px,transparent 8px);
 }
 
-/* $100.000 — azul/verde García Márquez */
-.bill-100000{
-  background:linear-gradient(135deg,#1a6b5a 0%,#2d9e7f 40%,#1a6b5a 70%,#0d4a3d 100%);
-  color:#b8f0e0;text-shadow:0 1px 3px rgba(0,0,0,.4);
-}
+/* $100.000 — azul/verde */
+.bill-100000{background:linear-gradient(135deg,#1a6b5a 0%,#2d9e7f 40%,#1a6b5a 70%,#0d4a3d 100%);color:#b8f0e0;text-shadow:0 1px 3px rgba(0,0,0,.4);}
 /* $50.000 — rosado/lila */
-.bill-50000{
-  background:linear-gradient(135deg,#8b3a7e 0%,#c45aad 40%,#8b3a7e 70%,#5e2056 100%);
-  color:#f9d6f4;text-shadow:0 1px 3px rgba(0,0,0,.4);
-}
+.bill-50000{background:linear-gradient(135deg,#8b3a7e 0%,#c45aad 40%,#8b3a7e 70%,#5e2056 100%);color:#f9d6f4;text-shadow:0 1px 3px rgba(0,0,0,.4);}
 /* $20.000 — naranja/café */
-.bill-20000{
-  background:linear-gradient(135deg,#b85c1a 0%,#e07830 40%,#b85c1a 70%,#7a3a0d 100%);
-  color:#ffe0c0;text-shadow:0 1px 3px rgba(0,0,0,.4);
-}
+.bill-20000{background:linear-gradient(135deg,#b85c1a 0%,#e07830 40%,#b85c1a 70%,#7a3a0d 100%);color:#ffe0c0;text-shadow:0 1px 3px rgba(0,0,0,.4);}
 /* $10.000 — morado/violeta */
-.bill-10000{
-  background:linear-gradient(135deg,#4a2080 0%,#7040b8 40%,#4a2080 70%,#2d1050 100%);
-  color:#e0d0ff;text-shadow:0 1px 3px rgba(0,0,0,.4);
-}
+.bill-10000{background:linear-gradient(135deg,#4a2080 0%,#7040b8 40%,#4a2080 70%,#2d1050 100%);color:#e0d0ff;text-shadow:0 1px 3px rgba(0,0,0,.4);}
 /* $5.000 — naranja claro */
-.bill-5000{
-  background:linear-gradient(135deg,#c47820 0%,#e8a030 40%,#c47820 70%,#8a5010 100%);
-  color:#fff3cc;text-shadow:0 1px 3px rgba(0,0,0,.4);
-}
+.bill-5000{background:linear-gradient(135deg,#c47820 0%,#e8a030 40%,#c47820 70%,#8a5010 100%);color:#fff3cc;text-shadow:0 1px 3px rgba(0,0,0,.4);}
 /* $2.000 — azul claro */
-.bill-2000{
-  background:linear-gradient(135deg,#1a5a9e 0%,#2878cc 40%,#1a5a9e 70%,#0d3a6a 100%);
-  color:#c8e8ff;text-shadow:0 1px 3px rgba(0,0,0,.4);
-}
-/* $1.000 — rosado claro */
+.bill-2000{background:linear-gradient(135deg,#1a5a9e 0%,#2878cc 40%,#1a5a9e 70%,#0d3a6a 100%);color:#c8e8ff;text-shadow:0 1px 3px rgba(0,0,0,.4);}
+/* $1.000 — moneda bicolor plateada/bronce */
 .bill-1000{
-  background:linear-gradient(135deg,#b83060 0%,#e04880 40%,#b83060 70%,#7a1a40 100%);
-  color:#ffd0e0;text-shadow:0 1px 3px rgba(0,0,0,.4);
+  width:52px !important;height:52px !important;
+  border-radius:50% !important;
+  background:radial-gradient(circle, #e0e0e0 0%, #b8b8b8 38%, #c8920a 55%, #a07008 100%) !important;
+  color:#5a3a00 !important;
+  border:3px solid #a07008 !important;
+  box-shadow:0 4px 12px rgba(0,0,0,.3), inset 0 2px 4px rgba(255,255,255,.4), inset 0 -2px 4px rgba(0,0,0,.2) !important;
+  text-shadow:none !important;
+  font-size:11px !important;
 }
+.bill-1000:hover{transform:scale(1.1) rotate(5deg) !important;}
 
 /* ── MONEDAS COLOMBIANAS ─────────────────────────────────────── */
 .coin{
