@@ -217,7 +217,7 @@ tbody tr:hover{background:var(--celeste-light);}
 .bill-2000{background:linear-gradient(135deg,#1a5a9e 0%,#2878cc 40%,#1a5a9e 70%,#0d3a6a 100%);color:#c8e8ff;text-shadow:0 1px 3px rgba(0,0,0,.4);}
 /* $1.000 — moneda bicolor plateada/bronce */
 .bill-1000{
-  width:52px !important;height:52px !important;
+  width:44px !important;height:44px !important;
   border-radius:50% !important;
   background:radial-gradient(circle, #e0e0e0 0%, #b8b8b8 38%, #c8920a 55%, #a07008 100%) !important;
   color:#5a3a00 !important;
