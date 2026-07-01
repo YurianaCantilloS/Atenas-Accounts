@@ -671,11 +671,10 @@ function toggleDescuentoCompra(){
 /** Validación + guardado: suma al stock */
 
 
-/* ── Filtro mes/año (demo) ───────────────────────────────────── */
 function filtrarCompras(){
-  const mes = document.getElementById('c-mes').value;
-  const anio = document.getElementById('c-anio').value;
-  showToast(`🔍 Filtrando compras: ${mes ? 'mes ' + mes : 'todos los meses'} / ${anio}`, 'info');
+  const mes = parseInt(document.getElementById('c-mes').value) || null;
+  const anio = parseInt(document.getElementById('c-anio').value) || new Date().getFullYear();
+  cargarCompras(mes, anio);
 }
 
 /* ============================================================
@@ -1666,6 +1665,14 @@ document.addEventListener('DOMContentLoaded', async () => {
    actualizarBotonCerrarMes();
    await cargarContraEntregas();
    await cargarEnvios();
+     // Fijar mes actual por defecto en filtros
+  const mesHoy = new Date().getMonth() + 1;
+  const selVentas = document.getElementById('f-mes');
+  if(selVentas) selVentas.value = mesHoy;
+  const selCompras = document.getElementById('c-mes');
+  if(selCompras) selCompras.value = mesHoy;
+  const selGastos = document.getElementById('g-mes');
+  if(selGastos) selGastos.value = mesHoy;
    // Mostrar fecha actual en dashboard
   const hoy = new Date();
   const diasSemana = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
@@ -4510,6 +4517,7 @@ function cargarTopDias(ventas){
 
   const agrupado = {};
   ventas.forEach(v => {
+    if(!v.fecha) return;
     const key = v.fecha;
     if(!agrupado[key]) agrupado[key] = { fecha: key, total: 0, count: 0 };
     agrupado[key].total += v.total;
@@ -4527,7 +4535,9 @@ function cargarTopDias(ventas){
   }
 
   cont.innerHTML = top3.map((d, i) => {
+    if(!d.fecha) return '';
     const fecha = new Date(d.fecha + 'T00:00:00');
+    if(isNaN(fecha.getTime())) return '';
     const diaSemana = diasSemana[fecha.getDay()];
     const dia = String(fecha.getDate()).padStart(2,'0');
     const mes = mesesNombre[fecha.getMonth() + 1];
@@ -4545,7 +4555,7 @@ function cargarTopDias(ventas){
         <div class="cliente-medalla-value">${formatCOP(d.total)}</div>
       </div>
     `;
-  }).join('');
+  }).filter(Boolean).join('');
 }
 
 async function cargarGrafico6Meses(anio){
