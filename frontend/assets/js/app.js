@@ -4724,4 +4724,767 @@ const ultimoDia = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate();
   const btn = document.getElementById('btn-cerrar-mes');
   const hint = document.getElementById('cerrar-mes-hint');
 
+  if(diaActual >= ultimoDia - 2){
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    if(hint) hint.textContent = `¡Hoy es el último día de ${mes}!`;
+  } else {
+    btn.disabled = true;
+    btn.style.opacity = '.5';
+   if(hint) hint.textContent = `Disponible el ${ultimoDia} de ${MESES_NOMBRE[hoy.getMonth() + 1]}`;
+  }
+  // Verificar si el mes anterior no fue cerrado
+  const mesAnterior = hoy.getMonth(); // getMonth() da el mes anterior en base 0
+  const anioAnterior = mesAnterior === 0 ? hoy.getFullYear() - 1 : hoy.getFullYear();
+  const mesAnteriorNum = mesAnterior === 0 ? 12 : mesAnterior;
+
+ // Solo verificar desde julio 2026 en adelante (junio es el primer mes real)
+  const primerMesReal = 6// junio 2026
+  const primerAnioReal = 2026;
+
+  const esDespuesDelPrimerMes = (anioAnterior > primerAnioReal) || 
+    (anioAnterior === primerAnioReal && mesAnteriorNum > primerMesReal);
+
+  if(diaActual > 1 && esDespuesDelPrimerMes){
+    const { data: cierre } = await sb.from('cierres_mensuales')
+      .select('id')
+      .eq('mes', mesAnteriorNum)
+      .eq('anio', anioAnterior)
+      .maybeSingle();
+
+    if(!cierre){
+      // Mostrar banner persistente que no se cierra
+      let banner = document.getElementById('banner-cierre-pendiente');
+      if(!banner){
+        banner = document.createElement('div');
+        banner.id = 'banner-cierre-pendiente';
+        banner.style.cssText = `
+          position:fixed;top:0;left:0;right:0;z-index:999;
+          background:var(--rojo);color:#fff;
+          padding:12px 20px;text-align:center;
+          font-family:'Nunito',sans-serif;font-weight:800;font-size:13px;
+          display:flex;align-items:center;justify-content:center;gap:12px;
+        `;
+        banner.innerHTML = `
+          <span>⚠️ No cerraste el mes de ${MESES_NOMBRE[mesAnteriorNum]} ${anioAnterior} — ve a Caja para cerrarlo</span>
+          <button onclick="showView('caja')" style="background:#fff;color:var(--rojo);border:none;border-radius:20px;padding:4px 14px;font-weight:800;font-size:12px;cursor:pointer;font-family:'Nunito',sans-serif;">
+            Ir a Caja
+          </button>
+        `;
+        document.body.prepend(banner);
+      }
+    }
+  }
+}
+/* ============================================================
+   ENVÍOS - SEGUIMIENTO
+   ============================================================ */
+
+let _enviosData = [];
+let _envioSeleccionado = null;
+
+const CIUDADES_COORDS = {
+  'cartagena':     {lat:10.3910, lng:-75.4794, color:'#E91E8C'},
+  'barranquilla':  {lat:10.9639, lng:-74.7964, color:'#27AE60'},
+  'santa marta':   {lat:11.2408, lng:-74.1990, color:'#16A085'},
+  'valledupar':    {lat:10.4631, lng:-73.2532, color:'#1ABC9C'},
+  'bucaramanga':   {lat:7.1193,  lng:-73.1227, color:'#E74C3C'},
+  'medellín':      {lat:6.2442,  lng:-75.5812, color:'#8B5CF6'},
+  'medellin':      {lat:6.2442,  lng:-75.5812, color:'#8B5CF6'},
+  'manizales':     {lat:5.0703,  lng:-75.5138, color:'#D35400'},
+  'pereira':       {lat:4.8133,  lng:-75.6961, color:'#2980B9'},
+  'bogotá':        {lat:4.7110,  lng:-74.0721, color:'#3498DB'},
+  'bogota':        {lat:4.7110,  lng:-74.0721, color:'#3498DB'},
+  'villavicencio': {lat:4.1420,  lng:-73.6266, color:'#229954'},
+  'cali':          {lat:3.4516,  lng:-76.5320, color:'#F39C12'},
+  'pasto':         {lat:1.2136,  lng:-77.2811, color:'#8E44AD'},
+  'montecristo':   {lat:8.8167,  lng:-74.9667, color:'#E91E8C'},
+  'magangué':      {lat:9.2416,  lng:-74.7541, color:'#27AE60'},
+  'magangue':      {lat:9.2416,  lng:-74.7541, color:'#27AE60'},
+  'montería':      {lat:8.7575,  lng:-75.8878, color:'#E74C3C'},
+  'monteria':      {lat:8.7575,  lng:-75.8878, color:'#E74C3C'},
+  'sincelejo':     {lat:9.3047,  lng:-75.3978, color:'#8B5CF6'},
+  'riohacha':      {lat:11.5449, lng:-72.9072, color:'#F39C12'},
+  'cúcuta':        {lat:7.8939,  lng:-72.5078, color:'#2980B9'},
+  'cucuta':        {lat:7.8939,  lng:-72.5078, color:'#2980B9'},
+  'ibagué':        {lat:4.4389,  lng:-75.2322, color:'#D35400'},
+  'ibague':        {lat:4.4389,  lng:-75.2322, color:'#D35400'},
+  'armenia':       {lat:4.5339,  lng:-75.6811, color:'#1ABC9C'},
+  'neiva':         {lat:2.9273,  lng:-75.2819, color:'#8E44AD'},
+  'popayán':       {lat:2.4419,  lng:-76.6063, color:'#229954'},
+  'popayan':       {lat:2.4419,  lng:-76.6063, color:'#229954'},
+  'tunja':         {lat:5.5353,  lng:-73.3678, color:'#E91E8C'},
+  'santa rosa':    {lat:6.6333,  lng:-75.4667, color:'#27AE60'},
+  'turbo':         {lat:8.0992,  lng:-76.7233, color:'#E74C3C'},
+  'apartadó':      {lat:7.8797,  lng:-76.6278, color:'#8B5CF6'},
+  'apartado':      {lat:7.8797,  lng:-76.6278, color:'#8B5CF6'},
+  'montecristo':   {lat:8.8167,  lng:-74.9667, color:'#E91E8C'},
+
+};
+function ciudadCoords(nombre){
+  if(!nombre) return null;
+  return CIUDADES_COORDS[nombre.toLowerCase().trim()] || null;
+}
+
+async function cargarEnvios(){
+  const { data, error } = await sb
+    .from('ventas')
+    .select('*, venta_items(*)')
+    .eq('tipo', 'contraentrega')
+    .neq('estado_contraentrega', 'liquidado')
+    .order('created_at', {ascending: false});
+
+  if(error){ showToast('❌ Error cargando envíos', 'error'); return; }
+  _enviosData = data || [];
+  renderEnviosLista();
+  actualizarKpisEnvios();
+  if(_enviosData.length > 0) seleccionarEnvio(_enviosData[0].id);
+}
+
+function actualizarKpisEnvios(){
+  const prep    = _enviosData.filter(v => v.estado_contraentrega === 'preparacion');
+  const camino  = _enviosData.filter(v => v.estado_contraentrega === 'enviado');
+  const entregado = _enviosData.filter(v => v.estado_contraentrega === 'entregado');
+  const totalTransito = _enviosData.reduce((a,v)=>a+v.total,0);
+  const totalEntregado = entregado.reduce((a,v)=>a+v.total,0);
+
+  document.getElementById('env-kpi-transito').textContent = formatCOP(totalTransito);
+  document.getElementById('env-kpi-transito-count').textContent = _enviosData.length + ' pedidos';
+  document.getElementById('env-kpi-entregados').textContent = formatCOP(totalEntregado);
+  document.getElementById('env-kpi-prep').textContent = prep.length;
+  document.getElementById('env-kpi-camino').textContent = camino.length;
+}
+
+function renderEnviosLista(){
+  const lista = document.getElementById('envios-lista');
+  if(!lista) return;
+
+  if(!_enviosData.length){
+    lista.innerHTML = `<div style="padding:30px;text-align:center;color:var(--gris-60);font-size:13px;">No hay envíos activos. Los pedidos contra entrega aparecerán aquí.</div>`;
+    return;
+  }
+
+  const estadoInfo = {
+    preparacion: {emoji:'📦', clase:'est-prep',      label:'Preparación', bg:'var(--amarillo-light)'},
+    enviado:     {emoji:'🚚', clase:'est-camino',    label:'En camino',   bg:'var(--celeste-light)'},
+    entregado:   {emoji:'✅', clase:'est-entregado', label:'Entregado',   bg:'var(--verde-light)'},
+    devuelto:    {emoji:'↩️', clase:'est-devuelto',  label:'Devuelto',    bg:'var(--rojo-light)'},
+  };
+
+  lista.innerHTML = _enviosData.map(v => {
+    const estado = v.estado_contraentrega || 'preparacion';
+    const info = estadoInfo[estado] || estadoInfo.preparacion;
+    const transp = v.transportadora || '—';
+    const ciudad = v.ciudad_envio || '—';
+    const esSelec = v.id === _envioSeleccionado;
+
+    return `
+      <div class="envio-item ${esSelec ? 'env-selected' : ''}" id="envio-row-${v.id}" onclick="seleccionarEnvio('${v.id}')">
+        <div class="envio-avatar" style="background:${info.bg};">${info.emoji}</div>
+        <div class="envio-info">
+          <div class="envio-cliente-nombre">${v.cliente_nombre || '—'}</div>
+          <div class="envio-detalle-sub">${ciudad} · <strong style="font-size:10px;background:var(--gris-20);padding:1px 6px;border-radius:4px;">${transp}</strong></div>
+          <div class="env-estado-btns">
+            <button class="env-btn-estado ${estado==='preparacion'?'est-prep':''}" onclick="cambiarEstadoEnvio(event,'${v.id}','preparacion')">📦 Prep.</button>
+            <button class="env-btn-estado ${estado==='enviado'?'est-camino':''}" onclick="cambiarEstadoEnvio(event,'${v.id}','enviado')">🚚 Camino</button>
+            <button class="env-btn-estado ${estado==='entregado'?'est-entregado':''}" onclick="cambiarEstadoEnvio(event,'${v.id}','entregado')">✅ Entregado</button>
+            <button class="env-btn-estado ${estado==='devuelto'?'est-devuelto':''}" onclick="cambiarEstadoEnvio(event,'${v.id}','devuelto')">↩ Dev.</button>
+          </div>
+        </div>
+        <div class="envio-monto">${formatCOP(v.total)}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function seleccionarEnvio(id){
+  _envioSeleccionado = id;
+  // Resaltar fila
+  document.querySelectorAll('.envio-item').forEach(el => el.classList.remove('env-selected'));
+  const row = document.getElementById('envio-row-' + id);
+  if(row) row.classList.add('env-selected');
+
+  // Actualizar mapa
+  const v = _enviosData.find(x => x.id === id);
+  if(v) actualizarMapaEnvio(v);
+}
+
+let _leafletMap = null;
+let _leafletMarkers = [];
+let _leafletLine = null;
+
+function inicializarMapaLeaflet(){
+  if(_leafletMap) return;
+  _leafletMap = L.map('env-mapa-leaflet', {
+    center: [5.5, -74.5],
+    zoom: 5,
+    zoomControl: true,
+    scrollWheelZoom: false
+  });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+  }).addTo(_leafletMap);
+}
+
+function actualizarMapaEnvio(v){
+  const info = document.getElementById('env-mapa-info');
+  if(!info) return;
+
+  inicializarMapaLeaflet();
+
+  _leafletMarkers.forEach(m => _leafletMap.removeLayer(m));
+  _leafletMarkers = [];
+  if(_leafletLine){ _leafletMap.removeLayer(_leafletLine); _leafletLine = null; }
+
+  const estado = v.estado_contraentrega || 'preparacion';
+  const estadoLabel = {preparacion:'📦 En Preparación', enviado:'🚚 En camino', entregado:'✅ Entregado', devuelto:'↩️ Devuelto'};
+  const estadoEmoji = {preparacion:'📦', enviado:'🚚', entregado:'✅', devuelto:'↩️'};
+
+  const ciudad = (v.ciudad_envio || '').toLowerCase().trim().split('-')[0].trim().split(',')[0].trim();
+  const coords = CIUDADES_COORDS[ciudad];
+  const origen = CIUDADES_COORDS['cartagena'];
+
+  const iconOrigen = L.divIcon({
+    html:`<div style="background:#E91E8C;width:14px;height:14px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3);"></div>`,
+    iconSize:[14,14], iconAnchor:[7,7], className:''
+  });
+  const markerOrigen = L.marker([origen.lat, origen.lng], {icon:iconOrigen})
+    .addTo(_leafletMap).bindPopup('📦 Origen: Cartagena');
+  _leafletMarkers.push(markerOrigen);
+
+  if(!coords){
+    _leafletMap.setView([origen.lat, origen.lng], 6);
+    setTimeout(()=>_leafletMap.invalidateSize(), 100);
+    info.innerHTML = `<span style="color:var(--gris-60);">${v.ciudad_envio || 'Ciudad no registrada'} — sin coordenadas</span>`;
+    return;
+  }
+
+  const iconDestino = L.divIcon({
+    html:`<div style="background:${coords.color};width:14px;height:14px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3);"></div>`,
+    iconSize:[14,14], iconAnchor:[7,7], className:''
+  });
+  const markerDestino = L.marker([coords.lat, coords.lng], {icon:iconDestino})
+    .addTo(_leafletMap).bindPopup(`${estadoEmoji[estado]} Destino: ${v.ciudad_envio}`);
+  _leafletMarkers.push(markerDestino);
+
+  const lineColor = estado === 'entregado' ? '#27AE60' : estado === 'devuelto' ? '#E74C3C' : coords.color;
+  _leafletLine = L.polyline(
+    [[origen.lat, origen.lng],[coords.lat, coords.lng]],
+    {color:lineColor, weight:3, opacity:0.8, dashArray: estado === 'preparacion' ? '6,8' : null}
+  ).addTo(_leafletMap);
+
+  let camionLat, camionLng;
+  if(estado === 'preparacion'){
+    camionLat = origen.lat; camionLng = origen.lng;
+  } else if(estado === 'enviado'){
+    camionLat = (origen.lat + coords.lat) / 2;
+    camionLng = (origen.lng + coords.lng) / 2;
+  } else {
+    camionLat = coords.lat; camionLng = coords.lng;
+  }
+
+  const iconCamion = L.divIcon({
+    html:`<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+      <div style="background:#fff;border-radius:8px;padding:2px 6px;font-size:10px;font-weight:800;color:#E91E8C;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.2);">Pedido · ${v.cliente_nombre}</div>
+      <div style="font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3));">🚚</div>
+    </div>`,
+    iconSize:[80,50], iconAnchor:[40,50], className:''
+  });
+ const popupCamion = `
+    <div style="font-family:'Poppins',sans-serif;font-size:12px;min-width:160px;">
+      <div style="font-weight:800;color:#E91E8C;margin-bottom:4px;">Pedido de ${v.cliente_nombre}</div>
+      <div style="color:#666;">📍 ${v.ciudad_envio}</div>
+      <div style="color:#666;">🚛 ${v.transportadora || 'Sin transportadora'}</div>
+      <div style="font-weight:800;color:#1D6A3A;margin-top:4px;">${formatCOP(v.total)}</div>
+    </div>
+  `;
+  const markerCamion = L.marker([camionLat, camionLng], {icon:iconCamion})
+    .addTo(_leafletMap).bindPopup(popupCamion).openPopup();
+  _leafletMarkers.push(markerCamion);
+
+  _leafletMap.fitBounds([[origen.lat, origen.lng],[coords.lat, coords.lng]], {padding:[40,40]});
+  setTimeout(()=>_leafletMap.invalidateSize(), 100);
+info.innerHTML = '';
+}
+
+async function cambiarEstadoEnvio(ev, id, nuevoEstado){
+  ev.stopPropagation();
+
+  const { error } = await sb.from('ventas')
+    .update({ estado_contraentrega: nuevoEstado })
+    .eq('id', id);
+
+  if(error){ showToast('❌ Error: ' + error.message, 'error'); return; }
+
+  const v = _enviosData.find(x => x.id === id);
+  if(v) v.estado_contraentrega = nuevoEstado;
+
+  const labels = {preparacion:'preparación', enviado:'en camino', entregado:'entregado ✅', devuelto:'devuelto ↩'};
+  showToast(`✅ ${v?.cliente_nombre || 'Envío'} → ${labels[nuevoEstado]}`, 'success');
+
+  renderEnviosLista();
+  actualizarKpisEnvios();
+  if(_envioSeleccionado === id && v) actualizarMapaEnvio(v);
+  await cargarContraEntregas();
+}
+async function actualizarCuadreGlobal(){
+  const hoy = new Date();
+  const mes = hoy.getMonth() + 1;
+  const anio = hoy.getFullYear();
+
+  const { data: config } = await sb.from('configuracion').select('saldo_inicial_global').eq('id',1).single();
+  const saldonInicial = config?.saldo_inicial_global || 0;
+
+  const [ventasRes, comprasRes, gastosRes] = await Promise.all([
+    sb.from('ventas').select('total').eq('mes', mes).eq('anio', anio),
+    sb.from('compras').select('total, tipo, es_abono').eq('mes', mes).eq('anio', anio),
+    sb.from('gastos').select('valor').eq('mes', mes).eq('anio', anio)
+  ]);
+
+  const totalVentas = (ventasRes.data||[]).reduce((a,v)=>a+v.total,0);
+ const totalCompras = (comprasRes.data||[]).filter(c=>c.tipo==='contado' || c.es_abono).reduce((a,c)=>a+c.total,0);
+  const totalGastos = (gastosRes.data||[]).reduce((a,g)=>a+g.valor,0);
+  const utilidad = totalVentas - totalCompras - totalGastos;
+
+  const totalPendientes = PENDIENTES.reduce((a,p)=>a+(p.monto-(p.monto_abonado||0)),0);
+
+  const { data: contras } = await sb.from('ventas').select('total')
+    .eq('tipo','contraentrega').neq('estado_contraentrega','liquidado');
+  const totalContras = (contras||[]).reduce((a,v)=>a+v.total,0);
+
+  const deberiasTener = saldonInicial + utilidad - totalPendientes - totalContras;
+  const tienesAhora = (CAJA?.efectivo||0) + (CAJA?.nequi||0) + (CAJA?.bancolombia||0);
+  const diferencia = tienesAhora - deberiasTener;
+
+  const el = document.querySelector('.cuadre-alert');
+  const icon = el?.querySelector('.cuadre-icon');
+  const title = el?.querySelector('.cuadre-title');
+  const sub = el?.querySelector('.cuadre-sub');
+  if(!el) return;
+
+  el.classList.remove('sobra','falta');
+
+if(Math.abs(diferencia) === 0){
+    icon.textContent = '✅';
+    title.textContent = '¡CAJA CUADRADA!';
+    sub.textContent = '';
+  } else if(diferencia > 0){
+    el.classList.add('sobra');
+    icon.textContent = '⚠️';
+    title.textContent = `Sobran ${formatCOP(diferencia)}`;
+    sub.textContent = '';
+  } else {
+    el.classList.add('falta');
+    icon.textContent = '❌';
+    title.textContent = `Faltan ${formatCOP(Math.abs(diferencia))}`;
+    sub.textContent = '';
+  }
+}
+
+function cambioTipoCompra(){
+  const tipo = document.getElementById('co-tipo').value;
+  document.getElementById('co-fuente-wrap').style.display = tipo === 'contado' ? 'flex' : 'none';
+  document.getElementById('co-credito-banner').style.display = tipo === 'credito' ? 'block' : 'none';
+}
+/* ============================================================
+   COTIZACIONES - TABS
+   ============================================================ */
+function cotizTab(tab, el){
+  document.querySelectorAll('#view-cotizaciones .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('cotiz-tab-proveedores').style.display = tab === 'proveedores' ? 'block' : 'none';
+  document.getElementById('cotiz-tab-clientes').style.display = tab === 'clientes' ? 'block' : 'none';
+  if(tab === 'clientes') cargarSimulaciones();
+}
+
+/* ============================================================
+   SIMULADOR DE FACTURA
+   ============================================================ */
+let _simItems = [];
+let _simSeq = 0;
+
+function abrirModalSimulador(){
+  _simItems = [];
+  _simSeq = 0;
+  document.getElementById('sim-cliente').value = '';
+  agregarItemSim();
+  document.getElementById('modal-simulador').classList.add('open');
+}
+
+function cerrarModalSimulador(){
+  document.getElementById('modal-simulador').classList.remove('open');
+}
+
+function agregarItemSim(){
+  const id = 'sim-item-' + (++_simSeq);
+  _simItems.push({ id, ref:'', nombre:'', precio:0, stock:0, cantidad:1, icon:'📦', foto_url:null });
+  renderItemsSim();
+}
+
+function eliminarItemSim(id){
+  _simItems = _simItems.filter(it => it.id !== id);
+  if(_simItems.length === 0) agregarItemSim();
+  else renderItemsSim();
+}
+
+function renderItemsSim(){
+  const cont = document.getElementById('sim-items-list');
+  cont.innerHTML = _simItems.map(it => `
+    <div data-id="${it.id}" style="background:var(--gris-10);border-radius:10px;padding:10px;margin-bottom:8px;">
+      <div class="autocomplete-wrap" style="margin-bottom:6px;">
+        <input class="form-input" placeholder="Buscar producto..." value="${it.nombre}"
+               oninput="buscarProductoSim('${it.id}', this.value)" autocomplete="off">
+        <div class="autocomplete-list" id="sim-ac-${it.id}"></div>
+        ${it.ref ? `<span class="form-hint">${it.foto_url ? `<img src="${it.foto_url}" style="width:20px;height:20px;border-radius:4px;object-fit:cover;vertical-align:middle;">` : it.icon} ${it.nombre} — Stock: <strong style="color:${it.stock > 0 ? 'var(--verde)' : 'var(--rojo)'};">${it.stock}</strong></span>` : ''}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:end;">
+        <div><div class="form-label">Cant.</div><input class="form-input" type="number" min="1" value="${it.cantidad}" oninput="cambiarCantidadSim('${it.id}', this.value)"></div>
+        <div><div class="form-label">Precio</div><input class="form-input" type="text" value="${it.precio ? it.precio.toLocaleString('es-CO') : ''}" oninput="cambiarPrecioSim('${it.id}', this.value)"></div>
+        <div><div class="form-label">Subtotal</div><input class="form-input" readonly value="${formatCOP(it.precio * it.cantidad)}" style="background:#fff;color:var(--gris-60);"></div>
+        <button type="button" class="multi-item-remove" onclick="eliminarItemSim('${it.id}')">✕</button>
+      </div>
+    </div>
+  `).join('');
+  calcTotalSim();
+}
+
+function buscarProductoSim(id, query){
+  const list = document.getElementById('sim-ac-' + id);
+  if(!query.trim()){ list.classList.remove('open'); return; }
+  const q = query.toLowerCase();
+  const resultados = PRODUCTOS.filter(p =>
+    p.nombre.toLowerCase().includes(q) || p.referencia.toLowerCase().includes(q)
+  );
+  if(!resultados.length){
+    list.innerHTML = '<div class="autocomplete-item" style="color:var(--gris-60);">Sin resultados</div>';
+  } else {
+    list.innerHTML = resultados.map(p => `
+      <div class="autocomplete-item" onclick="seleccionarProductoSim('${id}','${p.id}')"
+           style="display:flex;align-items:center;gap:8px;">
+        ${p.foto_url ? `<img src="${p.foto_url}" style="width:28px;height:28px;border-radius:6px;object-fit:cover;">` : `<span>${p.icono || '📦'}</span>`}
+        <span>${p.nombre} <span class="ac-ref">${p.referencia}</span>
+        <span class="ac-stock" style="color:${p.stock > 0 ? 'var(--verde)' : 'var(--rojo)'};">Stock: ${p.stock}</span></span>
+      </div>
+    `).join('');
+  }
+  list.classList.add('open');
+}
+
+function seleccionarProductoSim(id, productoId){
+  const p = PRODUCTOS.find(x => x.id === productoId);
+  if(!p) return;
+  const item = _simItems.find(it => it.id === id);
+  item.ref = p.id;
+  item.nombre = p.nombre;
+  item.precio = p.precio;
+  item.stock = p.stock;
+  item.icon = p.icono || '📦';
+  item.foto_url = p.foto_url || null;
+  renderItemsSim();
+}
+
+function cambiarCantidadSim(id, valor){
+  const item = _simItems.find(it => it.id === id);
+  item.cantidad = Math.max(1, parseInt(valor) || 1);
+  const row = document.querySelector(`#sim-items-list [data-id="${id}"]`);
+  row.querySelector('input[readonly]').value = formatCOP(item.precio * item.cantidad);
+  calcTotalSim();
+}
+
+function cambiarPrecioSim(id, valor){
+  const item = _simItems.find(it => it.id === id);
+  item.precio = rawNum({value: valor});
+  const row = document.querySelector(`#sim-items-list [data-id="${id}"]`);
+  row.querySelector('input[readonly]').value = formatCOP(item.precio * item.cantidad);
+  calcTotalSim();
+}
+
+function calcTotalSim(){
+  const total = _simItems.reduce((acc, it) => acc + (it.precio * it.cantidad), 0);
+  document.getElementById('sim-subtotal').textContent = formatCOP(total);
+  document.getElementById('sim-total').textContent = formatCOP(total);
+}
+
+
+
+function eliminarSimulacion(id){
+  confirmarAccion('¿Eliminar esta cotización?', () => {
+    document.getElementById(id)?.remove();
+    showToast('🗑️ Cotización eliminada', 'info');
+  });
+}
+
+async function generarFacturaSimulada(){
+  const cliente = document.getElementById('sim-cliente').value.trim() || 'Cliente';
+  const itemsValidos = _simItems.filter(it => it.ref);
+  if(!itemsValidos.length){
+    showToast('⚠️ Agrega al menos un producto', 'error');
+    return;
+  }
+
+  const total = itemsValidos.reduce((acc, it) => acc + (it.precio * it.cantidad), 0);
+
+  await sb.from('cotizaciones_clientes').insert({
+    cliente_nombre: cliente,
+    total,
+    fecha: new Date().toISOString().split('T')[0],
+    items: itemsValidos.map(it => ({
+      nombre: it.nombre,
+      cantidad: it.cantidad,
+      precio: it.precio,
+      subtotal: it.precio * it.cantidad,
+      foto_url: it.foto_url || null,
+      icon: it.icon
+    }))
+  });
+
+  cerrarModalSimulador();
+  await cargarSimulaciones();
+  showToast('✅ Cotización guardada', 'success');
+}
+
+async function cargarSimulaciones(){
+  const { data, error } = await sb
+    .from('cotizaciones_clientes')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if(error){ showToast('❌ Error: ' + error.message, 'error'); return; }
+
+  const lista = document.getElementById('simulador-lista');
+  if(!lista) return;
+
+  if(!data?.length){
+    lista.innerHTML = '<div style="padding:30px;text-align:center;color:var(--gris-60);font-size:13px;">No hay cotizaciones guardadas.</div>';
+    return;
+  }
+
+  lista.innerHTML = data.map(s => {
+    const simId = 'sim-' + s.id;
+    const items = s.items || [];
+    const fechaCorta = new Date(s.fecha + 'T00:00:00').toLocaleDateString('es-CO');
+
+    const itemsResumen = items.map(it => `
+      <div class="venta-item-row">
+        <div class="venta-item-thumb">${it.foto_url ? `<img src="${it.foto_url}" style="width:30px;height:30px;border-radius:7px;object-fit:cover;">` : it.icon || '📦'}</div>
+        <div class="venta-item-info">${it.nombre} x${it.cantidad}</div>
+        <div class="venta-item-total">${formatCOP(it.subtotal)}</div>
+      </div>
+    `).join('');
+
+    return `
+      <div class="venta-grupo cotiz-row" id="${simId}">
+       <div class="venta-grupo-head" style="background:#fff;" onclick="toggleVentaDetalle(this)">
+          <div class="venta-cliente">
+           <span style="background:var(--gris-20);color:var(--gris-80);font-size:10px;font-weight:800;padding:4px 10px;border-radius:8px;white-space:nowrap;">${items.length} producto${items.length > 1 ? 's' : ''}</span>
+            <div class="venta-cliente-nombre">Cotización — ${s.cliente_nombre}</div>
+          </div>
+          <div class="venta-grupo-meta">
+            <span class="cotiz-mes-badge">📅 ${fechaCorta}</span>
+            <span class="venta-grupo-total">${formatCOP(s.total)}</span>
+            <button class="btn-icon" title="Ver factura" onclick="verFacturaSimDB('${s.id}')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </button>
+            <button class="btn-icon" title="Eliminar" onclick="eliminarSimulacionDB('${s.id}')" style="color:var(--rojo);">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            </button>
+            <span class="venta-chev">▼</span>
+          </div>
+        </div>
+        <div class="venta-detalle collapsed">${itemsResumen}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function verFacturaSimDB(id){
+  const { data: s } = await sb.from('cotizaciones_clientes').select('*').eq('id', id).single();
+  if(!s) return;
+
+  const fecha = new Date(s.fecha + 'T00:00:00').toLocaleDateString('es-CO', {year:'numeric', month:'long', day:'numeric'});
+  const items = s.items || [];
+
+  const fechaArchivo = new Date(s.fecha + 'T00:00:00').toLocaleDateString('es-CO', {day:'2-digit', month:'2-digit', year:'2-digit'});
+  const nombreArchivo = `Cotizacion_${(s.cliente_nombre || 'Cliente').replace(/\s+/g,'_')}_${fechaArchivo.replace(/\//g,'-')}`;
+
+  const pdfBlob = await construirFacturaPDF({
+    titulo: 'Cotización de Factura',
+    fecha, cliente: s.cliente_nombre || 'Sin definir', telefono: '',
+    metodoPago: '', items: items.map(it => ({
+      nombre: it.nombre, cantidad: it.cantidad,
+      precio: it.precio, subtotal: it.subtotal
+    })),
+    descuento: 0, total: s.total
+  });
+
+  mostrarFacturaPDF(pdfBlob, nombreArchivo);
+}
+
+async function eliminarSimulacionDB(id){
+  confirmarAccion('¿Eliminar esta cotización?', async () => {
+    await sb.from('cotizaciones_clientes').delete().eq('id', id);
+    showToast('🗑️ Cotización eliminada', 'info');
+    await cargarSimulaciones();
+  });
+}
+
+function contactoTab(tab, el){
+  document.querySelectorAll('#view-contactos .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('contacto-tab-clientes').style.display = tab === 'clientes' ? 'block' : 'none';
+  document.getElementById('contacto-tab-proveedores').style.display = tab === 'proveedores' ? 'block' : 'none';
+}
+
+function descargarFacturaPDF(htmlContent, nombreArchivo){
+  const modal = document.getElementById('modal-factura-preview');
+  const iframe = document.getElementById('factura-iframe');
+  modal.classList.add('open');
+  const blob = new Blob([htmlContent], {type:'text/html'});
+  const url = URL.createObjectURL(blob);
+  iframe.src = url;
+  // Guardar blob para descarga y compartir
+  window._facturaBlob = blob;
+  window._facturaNombre = nombreArchivo;
+}
+
+function imprimirFacturaPreview(){
+  const iframe = document.getElementById('factura-iframe');
+  iframe.contentWindow.print();
+}
+
+function cerrarFacturaPreview(){
+  document.getElementById('modal-factura-preview').classList.remove('open');
+  const iframe = document.getElementById('factura-iframe');
+  iframe.src = '';
+  const visor = document.getElementById('factura-img-visor');
+  if(visor){ visor.innerHTML = ''; visor.style.display = 'none'; }
+}
+
+function imprimirFacturaPreview(){
+  document.getElementById('factura-iframe').contentWindow.print();
+}
+
+function buscarVentas(query){
+  const q = query.toLowerCase();
+  document.querySelectorAll('#ventas-lista .venta-grupo').forEach(el => {
+    el.style.display = el.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+function buscarCompras(query){
+  const q = query.toLowerCase();
+  document.querySelectorAll('#compras-lista .venta-grupo').forEach(el => {
+    el.style.display = el.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+
+async function compartirWhatsApp(){
+  if(!window._facturaPdfBlob) return;
+  const nombreArchivo = (window._facturaNombre || 'factura') + '.pdf';
+  const isMobile = window.innerWidth <= 768;
+
+  if(isMobile){
+    const pdfFile = new File([window._facturaPdfBlob], nombreArchivo, {type:'application/pdf'});
+    if(navigator.canShare && navigator.canShare({files:[pdfFile]})){
+      try {
+        await navigator.share({files:[pdfFile]});
+        return;
+      } catch(e){
+        if(e.name === 'AbortError') return;
+      }
+    }
+    showToast('⚠️ Descarga el PDF y adjúntalo desde WhatsApp', 'error');
+  } else {
+    window.open('https://web.whatsapp.com', '_blank');
+    showToast('💬 Abriendo WhatsApp Web — adjunta el PDF descargándolo desde Descargar', 'info');
+  }
+}
+
+async function logoBase64(){
+  try {
+    const res = await fetch(window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '/') + 'assets/img/logo.png');
+    const blob = await res.blob();
+    return await new Promise(r => {
+      const reader = new FileReader();
+      reader.onload = () => r(reader.result);
+      reader.readAsDataURL(blob);
+    });
+  } catch(e){ 
+    console.error('Logo error:', e);
+    return ''; 
+  }
+}
+function buscarCliente(query){
+  const q = query.toLowerCase();
+  document.querySelectorAll('#clientes-lista .contacto-row').forEach(row => {
+    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+function buscarProveedor(query){
+  const q = query.toLowerCase();
+  document.querySelectorAll('#proveedores-lista .contacto-row').forEach(row => {
+    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+async function verAbonosCompra(compraId){
+  const { data, error } = await sb.from('abonos_compras')
+    .select('*').eq('compra_id', compraId)
+    .order('created_at', {ascending: false});
+
+  const c = COMPRAS.find(x => x.id === compraId);
   
+  if(error || !data?.length){
+    showToast(`Sin abonos registrados`, 'info');
+    return;
+  }
+
+  const modal = document.getElementById('modal-confirm');
+  document.getElementById('confirm-title').textContent = `📋 ${c?.proveedor_nombre || 'Proveedor'}`;
+  document.getElementById('confirm-msg').innerHTML = `
+    <div style="font-size:13px;color:var(--gris-60);margin-bottom:10px;">
+      Saldo pendiente: <strong style="color:var(--rojo);">${formatCOP(c?.saldo_credito || 0)}</strong>
+    </div>
+    ${data.map(ab => `
+      <div style="padding:6px 0;border-bottom:1px solid var(--gris-20);font-size:13px;display:flex;justify-content:space-between;align-items:center;">
+        <span>Abonaste <strong>${formatCOP(ab.monto)}</strong> el ${new Date(ab.fecha+'T00:00:00').toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'})} <span style="color:var(--gris-60);">(${ab.fuente})</span></span>
+        <button onclick="eliminarAbonoCompra('${ab.id}', ${ab.monto}, '${ab.fuente}', '${compraId}')" style="background:none;border:none;cursor:pointer;color:var(--rojo);font-size:16px;" title="Eliminar abono">🗑️</button>
+      </div>
+    `).join('')}
+  `;
+  modal.classList.add('open');
+
+  const btnOk = document.getElementById('confirm-ok');
+  const newOk = btnOk.cloneNode(true);
+  btnOk.replaceWith(newOk);
+  newOk.textContent = 'Cerrar';
+  newOk.addEventListener('click', () => modal.classList.remove('open'));
+
+  const btnCancel = document.getElementById('confirm-cancel');
+  const newCancel = btnCancel.cloneNode(true);
+  btnCancel.replaceWith(newCancel);
+  newCancel.style.display = 'none';
+}
+
+async function eliminarAbonoCompra(abonoId, monto, fuente, compraId){
+  document.getElementById('modal-confirm').classList.remove('open');
+
+  // Revertir saldo en la compra
+  const c = COMPRAS.find(x => x.id === compraId);
+  const nuevoSaldo = (c?.saldo_credito || 0) + monto;
+  await sb.from('compras').update({ saldo_credito: nuevoSaldo }).eq('id', compraId);
+
+  // Revertir en caja
+  await actualizarSaldoCaja(fuente, monto, `Reverso abono compra — ${formatCOP(monto)}`);
+
+  // Borrar registro es_abono en compras
+  await sb.from('compras').delete().eq('es_abono', true).eq('compra_origen_id', compraId).eq('total', monto);
+
+  // Borrar de abonos_compras
+  await sb.from('abonos_compras').delete().eq('id', abonoId);
+
+  showToast('🗑️ Abono eliminado y saldo revertido', 'info');
+  await cargarCompras();
+}
