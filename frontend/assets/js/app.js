@@ -441,9 +441,10 @@ function toggleVentaDetalle(header){
 
 /* ── Filtro mes/año (demo) ───────────────────────────────────── */
 function filtrarVentas(){
-  const mes = document.getElementById('f-mes').value;
-  const anio = document.getElementById('f-anio').value;
-  showToast(`🔍 Filtrando: ${mes ? 'mes ' + mes : 'todos los meses'} / ${anio}`, 'info');
+  const val = document.getElementById('f-mes').value;
+  const mes = val === '' ? null : parseInt(val);
+  const anio = parseInt(document.getElementById('f-anio').value) || new Date().getFullYear();
+  cargarVentas(mes, anio);
 }
 
 /* ── Cerrar autocompletes al hacer click fuera ──────────────── */
@@ -672,7 +673,8 @@ function toggleDescuentoCompra(){
 
 
 function filtrarCompras(){
-  const mes = parseInt(document.getElementById('c-mes').value) || null;
+  const val = document.getElementById('c-mes').value;
+  const mes = val === '' ? null : parseInt(val);
   const anio = parseInt(document.getElementById('c-anio').value) || new Date().getFullYear();
   cargarCompras(mes, anio);
 }
@@ -719,7 +721,8 @@ function editarGasto(btn){
 
 
 function filtrarGastos(){
-  const mes = parseInt(document.getElementById('g-mes').value) || null;
+  const val = document.getElementById('g-mes').value;
+  const mes = val === '' ? null : parseInt(val);
   const anio = parseInt(document.getElementById('g-anio').value) || new Date().getFullYear();
   cargarGastos(mes, anio);
 }
@@ -2430,14 +2433,11 @@ let VENTAS = [];
 async function cargarVentas(mes, anio){
   const hoy = new Date();
   const a = anio || hoy.getFullYear();
+  const m = mes !== undefined ? mes : hoy.getMonth() + 1;
 
   let query = sb.from('ventas').select('*, venta_items(*)').order('created_at', { ascending: false });
-
-  if(mes === null || mes === undefined){
-    query = query.eq('anio', a);
-  } else {
-    query = query.eq('mes', mes).eq('anio', a);
-  }
+  if(m === null) query = query.eq('anio', a);
+  else query = query.eq('mes', m).eq('anio', a);
 
   const { data, error } = await query;
   if(error){ showToast('❌ Error cargando ventas', 'error'); return; }
@@ -2855,16 +2855,13 @@ let COMPRAS = [];
 async function cargarCompras(mes, anio){
   const hoy = new Date();
   const a = anio || hoy.getFullYear();
+  const m = mes !== undefined ? mes : hoy.getMonth() + 1;
 
   let query = sb.from('compras').select('*, compra_items(*)')
     .or('es_abono.is.null,es_abono.eq.false')
     .order('created_at', { ascending: false });
-
-  if(mes === null || mes === undefined){
-    query = query.eq('anio', a);
-  } else {
-    query = query.eq('mes', mes).eq('anio', a);
-  }
+  if(m === null) query = query.eq('anio', a);
+  else query = query.eq('mes', m).eq('anio', a);
 
   const { data, error } = await query;
   if(error){ showToast('❌ Error cargando compras', 'error'); return; }
@@ -3124,14 +3121,11 @@ let GASTOS = [];
 async function cargarGastos(mes, anio){
   const hoy = new Date();
   const a = anio || hoy.getFullYear();
+  const m = mes !== undefined ? mes : hoy.getMonth() + 1;
 
   let query = sb.from('gastos').select('*').order('created_at', { ascending: false });
-
-  if(mes === null || mes === undefined){
-    query = query.eq('anio', a);
-  } else {
-    query = query.eq('mes', mes).eq('anio', a);
-  }
+  if(m === null) query = query.eq('anio', a);
+  else query = query.eq('mes', m).eq('anio', a);
 
   const { data, error } = await query;
   if(error){ showToast('❌ Error cargando gastos', 'error'); return; }
