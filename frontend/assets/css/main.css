@@ -776,3 +776,5 @@ html, body { height: 100%; }
   width: 90%;
   max-width: 600px;
 }
+
+.gasto-nomina { background:#fce4ec; color:#c2185b; }

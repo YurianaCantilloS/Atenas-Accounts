@@ -686,7 +686,8 @@ const TIPOS_GASTO = {
   empaque:   { label:'📦 Empaque',          clase:'gasto-empaque' },
   descuento: { label:'🏷️ Descuento',        clase:'gasto-descuento' },
   ajustes:   { label:'⚙️ Ajustes',          clase:'gasto-ajustes' },
-  envios:    { label:' Envíos/Domicilios', clase:'gasto-envios' },
+  envios:    { label:'🚚 Envíos/Domicilios', clase:'gasto-envios' },
+  nomina:    { label:'💵 Nómina/Sueldo',    clase:'gasto-nomina' },
   otros:     { label:'🔹 Otros',            clase:'gasto-otros' },
 };
 
@@ -718,11 +719,10 @@ function editarGasto(btn){
 }
 
 
-/* ── Filtro mes/año (demo) ───────────────────────────────────── */
 function filtrarGastos(){
-  const mes = document.getElementById('g-mes').value;
-  const anio = document.getElementById('g-anio').value;
-  showToast(`🔍 Filtrando gastos: ${mes ? 'mes ' + mes : 'todos los meses'} / ${anio}`, 'info');
+  const mes = parseInt(document.getElementById('g-mes').value) || null;
+  const anio = parseInt(document.getElementById('g-anio').value) || new Date().getFullYear();
+  cargarGastos(mes, anio);
 }
 /* ============================================================
    PENDIENTES (Caja)
@@ -3116,16 +3116,17 @@ let GASTOS = [];
 
 async function cargarGastos(mes, anio){
   const hoy = new Date();
-  const m = mes || hoy.getMonth() + 1;
   const a = anio || hoy.getFullYear();
 
-  const { data, error } = await sb
-    .from('gastos')
-    .select('*')
-    .eq('mes', m)
-    .eq('anio', a)
-    .order('created_at', { ascending: false });
+  let query = sb.from('gastos').select('*').order('created_at', { ascending: false });
 
+  if(mes === null || mes === undefined){
+    query = query.eq('anio', a);
+  } else {
+    query = query.eq('mes', mes).eq('anio', a);
+  }
+
+  const { data, error } = await query;
   if(error){ showToast('❌ Error cargando gastos', 'error'); return; }
   GASTOS = data;
   renderGastos();
@@ -3161,31 +3162,33 @@ function actualizarGraficoGastos(){
 
   const total = Object.values(porTipo).reduce((a,b) => a+b, 0) || 1;
   const colores = {
-    envios: 'var(--banco-dark)',
-    empaque: 'var(--celeste-dark)',
-    otros: 'var(--gris-40)',
+    envios:    'var(--banco-dark)',
+    empaque:   'var(--celeste-dark)',
+    otros:     'var(--gris-40)',
     descuento: 'var(--fucsia)',
-    ajustes: 'var(--amarillo)'
+    ajustes:   'var(--amarillo)',
+    nomina:    '#c2185b'
+  };
+
+  const labelMap = {
+    envios:    'Envíos/<br>Domicilios',
+    empaque:   'Empaque',
+    descuento: 'Descuento',
+    ajustes:   'Ajustes',
+    nomina:    'Nómina/<br>Sueldo',
+    otros:     'Otros'
   };
 
   const grafico = document.getElementById('grafico-gastos-tipo');
   if(!grafico) return;
 
-  const orden = ['envios','empaque','otros','descuento','ajustes'];
-grafico.innerHTML = orden.map(tipo => {
+  const orden = ['nomina','envios','empaque','descuento','ajustes','otros'];
+  grafico.innerHTML = orden.map(tipo => {
     const valor = porTipo[tipo] || 0;
     const pct = Math.round((valor / total) * 100);
-    const labelMap = {
-  envios: 'Envíos/<br>Domicilios',
-  empaque: 'Empaque',
-  descuento: 'Descuento',
-  ajustes: 'Ajustes',
-  otros: 'Otros'
-};
-const label = labelMap[tipo] || tipo;
     return `
       <div class="chart-bar-row">
-        <div class="chart-bar-label">${label}</div>
+        <div class="chart-bar-label">${labelMap[tipo] || tipo}</div>
         <div class="chart-bar-track" style="margin-right:0;">
           <div class="chart-bar-fill" style="width:${pct}%;background:${colores[tipo]};"></div>
         </div>
