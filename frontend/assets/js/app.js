@@ -2422,16 +2422,17 @@ let VENTAS = [];
 
 async function cargarVentas(mes, anio){
   const hoy = new Date();
-  const m = mes || hoy.getMonth() + 1;
   const a = anio || hoy.getFullYear();
 
-  const { data, error } = await sb
-    .from('ventas')
-    .select('*, venta_items(*)')
-    .eq('mes', m)
-    .eq('anio', a)
-    .order('created_at', { ascending: false });
+  let query = sb.from('ventas').select('*, venta_items(*)').order('created_at', { ascending: false });
 
+  if(mes === null || mes === undefined){
+    query = query.eq('anio', a);
+  } else {
+    query = query.eq('mes', mes).eq('anio', a);
+  }
+
+  const { data, error } = await query;
   if(error){ showToast('❌ Error cargando ventas', 'error'); return; }
   VENTAS = data;
   renderVentas();
@@ -2846,17 +2847,19 @@ let COMPRAS = [];
 
 async function cargarCompras(mes, anio){
   const hoy = new Date();
-  const m = mes || hoy.getMonth() + 1;
   const a = anio || hoy.getFullYear();
 
-  const { data, error } = await sb
-    .from('compras')
-    .select('*, compra_items(*)')
-    .eq('mes', m)
-    .eq('anio', a)
+  let query = sb.from('compras').select('*, compra_items(*)')
     .or('es_abono.is.null,es_abono.eq.false')
     .order('created_at', { ascending: false });
 
+  if(mes === null || mes === undefined){
+    query = query.eq('anio', a);
+  } else {
+    query = query.eq('mes', mes).eq('anio', a);
+  }
+
+  const { data, error } = await query;
   if(error){ showToast('❌ Error cargando compras', 'error'); return; }
   COMPRAS = data;
   renderCompras();
@@ -4405,27 +4408,32 @@ const totalCompras = compras.filter(c => c.tipo === 'contado' || c.es_abono).red
 }
 
 async function cargarTopProductos(mes, anio){
-  const { data } = await sb
-    .from('venta_items')
-    .select('producto_id, producto_nombre, producto_icono, cantidad, venta:ventas!venta_id(mes, anio)')
-    .eq('venta.mes', mes)
-    .eq('venta.anio', anio);
+  // Primero obtener IDs de ventas del mes
+  const { data: ventasMes } = await sb
+    .from('ventas').select('id')
+    .eq('mes', mes).eq('anio', anio);
 
-  // Agrupar por producto
+  const cont = document.getElementById('dash-top-productos');
+  if(!cont) return;
+
+  if(!ventasMes?.length){
+    cont.innerHTML = `<div style="text-align:center;color:var(--gris-60);padding:20px;font-size:13px;">Sin ventas este mes</div>`;
+    return;
+  }
+
+  const { data } = await sb
+    .from('venta_items').select('producto_id, producto_nombre, producto_icono, cantidad')
+    .in('venta_id', ventasMes.map(v => v.id));
+
   const agrupado = {};
   (data || []).forEach(it => {
-    if(!it.venta) return;
     const key = it.producto_id || it.producto_nombre;
-    if(!agrupado[key]){
-      agrupado[key] = { nombre: it.producto_nombre, icono: it.producto_icono || '📦', cantidad: 0, producto_id: it.producto_id };
-    }
+    if(!agrupado[key]) agrupado[key] = { nombre: it.producto_nombre, icono: it.producto_icono || '📦', cantidad: 0, producto_id: it.producto_id };
     agrupado[key].cantidad += it.cantidad;
   });
 
   const top3 = Object.values(agrupado).sort((a,b) => b.cantidad - a.cantidad).slice(0,3);
   const medallas = ['🥇','🥈','🥉'];
-  const cont = document.getElementById('dash-top-productos');
-  if(!cont) return;
 
   if(top3.length === 0){
     cont.innerHTML = `<div style="text-align:center;color:var(--gris-60);padding:20px;font-size:13px;">Sin ventas este mes</div>`;
@@ -4434,14 +4442,11 @@ async function cargarTopProductos(mes, anio){
 
   cont.innerHTML = top3.map((p, i) => {
     const prod = PRODUCTOS.find(x => x.id === p.producto_id);
-    const thumb = prod?.foto_url
-      ? `<img src="${prod.foto_url}" style="width:70px;height:70px;border-radius:12px;object-fit:cover;">`
-      : `<div class="top3-icon" style="font-size:48px;">${p.icono}</div>`;
     const ref = prod?.referencia || '';
-  return `
+    return `
       <div class="top3-card" style="padding:0;overflow:hidden;display:flex;flex-direction:column;">
         <div style="position:relative;">
-          ${prod?.foto_url 
+          ${prod?.foto_url
             ? `<img src="${prod.foto_url}" style="width:100%;height:120px;object-fit:cover;display:block;">`
             : `<div style="width:100%;height:120px;display:flex;align-items:center;justify-content:center;font-size:52px;background:var(--gris-10);">${p.icono}</div>`
           }
