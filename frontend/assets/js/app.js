@@ -4310,11 +4310,11 @@ async function cargarDashboard(mes, anio){
       document.getElementById('dash-ventas-total').textContent = formatCOP(cierre.ventas_total);
       document.getElementById('dash-compras-gastos').textContent = formatCOP(cierre.compras_total + cierre.gastos_total);
 
-      // Top productos del cierre
-      const medallas = ['🥇','🥈','🥉'];
-      const contProd = document.getElementById('dash-top-productos');
-      if(contProd && cierre.top_productos){
-        contProd.innerHTML = cierre.top_productos.map((p,i) => `
+     // Top productos — del cierre o de tablas reales
+      if(cierre.top_productos){
+        const medallas = ['🥇','🥈','🥉'];
+        const contProd = document.getElementById('dash-top-productos');
+        if(contProd) contProd.innerHTML = cierre.top_productos.map((p,i) => `
           <div class="top3-card">
             <div class="top3-medal">${medallas[i]}</div>
             <div class="top3-icon">📦</div>
@@ -4323,12 +4323,15 @@ async function cargarDashboard(mes, anio){
             <div class="top3-units-label">Unidades</div>
           </div>
         `).join('');
+      } else {
+        await cargarTopProductos(m, a);
       }
 
-      // Top clientes del cierre
-      const contCli = document.getElementById('dash-top-clientes');
-      if(contCli && cierre.top_clientes){
-        contCli.innerHTML = cierre.top_clientes.map((c,i) => `
+      // Top clientes — del cierre o de tablas reales
+      if(cierre.top_clientes){
+        const medallas = ['🥇','🥈','🥉'];
+        const contCli = document.getElementById('dash-top-clientes');
+        if(contCli) contCli.innerHTML = cierre.top_clientes.map((c,i) => `
           <div class="cliente-medalla-card">
             <div class="cliente-medalla">${medallas[i]}</div>
             <div class="cliente-avatar">${c.nombre.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</div>
@@ -4338,13 +4341,16 @@ async function cargarDashboard(mes, anio){
             <div class="cliente-medalla-value">${formatCOP(c.total)}</div>
           </div>
         `).join('');
+      } else {
+        const { data: ventasMes } = await sb.from('ventas')
+          .select('total, cliente_nombre, cliente_id').eq('mes', m).eq('anio', a);
+        cargarTopClientes(ventasMes || []);
+        cargarTopDias(ventasMes || []);
       }
 
-      // Meta del cierre
       _ventasActuales = cierre.ventas_total;
       _metaVentas = cierre.meta_ventas || _metaVentas;
       actualizarBarraMeta();
-
       await cargarGrafico6Meses(a);
       return;
     } else {
