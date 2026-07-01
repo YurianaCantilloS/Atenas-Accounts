@@ -687,8 +687,8 @@ const TIPOS_GASTO = {
   empaque:   { label:'📦 Empaque',          clase:'gasto-empaque' },
   descuento: { label:'🏷️ Descuento',        clase:'gasto-descuento' },
   ajustes:   { label:'⚙️ Ajustes',          clase:'gasto-ajustes' },
-  envios:    { label:'🚚 Envíos/Domicilios', clase:'gasto-envios' },
-  nomina:    { label:'💵 Nómina/Sueldo',    clase:'gasto-nomina' },
+  envios:    { label:'Envíos/Domicilios', clase:'gasto-envios' },
+  nomina:    { label:'Nómina/Sueldo',    clase:'gasto-nomina' },
   otros:     { label:'🔹 Otros',            clase:'gasto-otros' },
 };
 
