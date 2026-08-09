@@ -3614,19 +3614,25 @@ async function confirmarAbonoCompra(){
   const fechaArchivo = new Date(v.fecha + 'T00:00:00').toLocaleDateString('es-CO', {day:'2-digit', month:'2-digit', year:'2-digit'});
   const nombreArchivo = `Factura_${(v.cliente_nombre || 'Cliente').replace(/\s+/g,'_')}_${fechaArchivo.replace(/\//g,'-')}`;
 
-  const pdfBlob = await construirFacturaPDF({
-    titulo: 'Comprobante de Venta',
-    fecha, cliente: v.cliente_nombre || 'Sin definir', telefono: clienteTel,
-    metodoPago, numero: numeroFactura(v.id),
-    items: items.map(it => ({
-      nombre: it.producto_nombre, cantidad: it.cantidad,
-      precio: it.precio_unitario, subtotal: it.precio_unitario * it.cantidad,
-      foto: it.foto_url || null
-    })),
-    descuento: v.descuento || 0, total: v.total
-  });
+  abrirModalFacturaCargando();
+  try{
+    const pdfBlob = await construirFacturaPDF({
+      titulo: 'Comprobante de Venta',
+      fecha, cliente: v.cliente_nombre || 'Sin definir', telefono: clienteTel,
+      metodoPago, numero: numeroFactura(v.id),
+      items: items.map(it => ({
+        nombre: it.producto_nombre, cantidad: it.cantidad,
+        precio: it.precio_unitario, subtotal: it.precio_unitario * it.cantidad,
+        foto: it.foto_url || null
+      })),
+      descuento: v.descuento || 0, total: v.total
+    });
 
-  mostrarFacturaPDF(pdfBlob, nombreArchivo);
+    mostrarFacturaPDF(pdfBlob, nombreArchivo);
+  }catch(e){
+    cerrarFacturaPreview();
+    showToast('❌ No se pudo generar la factura: ' + (e.message || e), 'error');
+  }
 }
 
 /** Número de factura determinístico a partir del id */
@@ -4045,7 +4051,7 @@ async function esperarAssets(cont){
 }
 
 /** Renderiza UNA página de la factura a canvas (210×297mm exactos) */
-async function renderPaginaFactura(cont, {numero, titulo, fecha, cliente, metodoPago, rows, logo, total, descuento}, tipo, pagina){
+async function renderPaginaFactura(cont, {numero, titulo, fecha, cliente, metodoPago, rows, logo, total, descuento}, tipo, pagina, escala = 2){
   const page = document.createElement('div');
   page.className = 'fx-page';
   page.style.cssText = 'position:absolute;top:0;left:0;';
@@ -4090,7 +4096,7 @@ async function renderPaginaFactura(cont, {numero, titulo, fecha, cliente, metodo
   });
 
   const canvas = await window.html2canvas(page, {
-    scale: 2,
+    scale: escala,
     useCORS: true,
     allowTaint: false,
     backgroundColor: '#FFFFFF',
@@ -4109,8 +4115,12 @@ async function construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPago
   const { jsPDF } = window.jspdf;
   if(!window.html2canvas){
     showToast('⚠️ No se pudo generar la factura (falta html2canvas)', 'error');
-    return new jsPDF().output('blob');
+    return { blob: new jsPDF().output('blob'), canvases: [] };
   }
+
+  // En móvil usamos una resolución menor para renderizar mucho más rápido
+  const isMobile = window.innerWidth <= 768;
+  const ESCALA = isMobile ? 1.5 : 2;
 
   showToast('⏳ Generando factura…', 'info');
   const logo = await logoMini();
@@ -4202,22 +4212,52 @@ async function construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPago
     }
 
     const pdf = new jsPDF({orientation: 'portrait', unit: 'mm', format: 'a4'});
+    const canvases = [];
     for(let p = 0; p < layoutPages.length; p++){
       const lp = layoutPages[p];
-      const canvas = await renderPaginaFactura(cont, {numero, titulo, fecha, cliente, metodoPago, rows, logo, total, descuento: descuento || 0}, lp.type, String(p + 1));
+      const canvas = await renderPaginaFactura(cont, {numero, titulo, fecha, cliente, metodoPago, rows, logo, total, descuento: descuento || 0}, lp.type, String(p + 1), ESCALA);
+      canvases.push(canvas);
       if(p > 0) pdf.addPage();
       pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297);
     }
 
-    return pdf.output('blob');
+    return { blob: pdf.output('blob'), canvases };
   } finally {
     cont.remove();
   }
 }
 
-/** Muestra el PDF en el modal y prepara descarga/compartir */
-async function mostrarFacturaPDF(pdfBlob, nombreArchivo){
+/** Devuelve (y crea si hace falta) el contenedor de vista previa por imágenes en móvil */
+function getFacturaVisor(){
+  const iframe = document.getElementById('factura-iframe');
+  let visor = document.getElementById('factura-img-visor');
+  if(!visor){
+    visor = document.createElement('div');
+    visor.id = 'factura-img-visor';
+    visor.style.cssText = 'overflow-y:auto;background:#525659;padding:8px;';
+    iframe.parentNode.insertBefore(visor, iframe);
+  }
+  return visor;
+}
+
+/** Abre el modal de la factura de inmediato con un estado de carga */
+function abrirModalFacturaCargando(){
   const modal = document.getElementById('modal-factura-preview');
+  modal.classList.add('open');
+  if(window.innerWidth <= 768){
+    document.getElementById('factura-iframe').style.display = 'none';
+    const visor = getFacturaVisor();
+    visor.innerHTML = '<div style="text-align:center;padding:20px;color:#fff;font-size:13px;">⏳ Generando factura...</div>';
+    visor.style.display = 'block';
+  }
+}
+
+/** Muestra el PDF en el modal y prepara descarga/compartir */
+async function mostrarFacturaPDF(resultado, nombreArchivo){
+  const pdfBlob = resultado && resultado.blob ? resultado.blob : resultado;
+  const canvases = resultado && resultado.canvases ? resultado.canvases : [];
+  const modal = document.getElementById('modal-factura-preview');
+  if(!modal.classList.contains('open')) return;
   const iframe = document.getElementById('factura-iframe');
   window._facturaPdfBlob = pdfBlob;
   window._facturaNombre = nombreArchivo;
@@ -4226,17 +4266,22 @@ async function mostrarFacturaPDF(pdfBlob, nombreArchivo){
   if(isMobile){
     iframe.style.display = 'none';
 
-    // Limpiar visor anterior
-    let visor = document.getElementById('factura-img-visor');
-    if(!visor){
-      visor = document.createElement('div');
-      visor.id = 'factura-img-visor';
-      visor.style.cssText = 'overflow-y:auto;background:#525659;padding:8px;';
-      iframe.parentNode.insertBefore(visor, iframe);
+    // En móvil mostramos directo los canvas ya generados (evita volver a renderizar con pdf.js)
+    if(canvases && canvases.length){
+      const visor = getFacturaVisor();
+      visor.style.display = 'block';
+      visor.innerHTML = '';
+      canvases.forEach(c => {
+        c.style.cssText = 'width:100%;display:block;margin-bottom:4px;';
+        visor.appendChild(c);
+      });
+      return;
     }
+
+    // Limpiar visor anterior
+    const visor = getFacturaVisor();
     visor.innerHTML = '<div style="text-align:center;padding:20px;color:#fff;font-size:13px;">⏳ Cargando vista previa...</div>';
     visor.style.display = 'block';
-    modal.classList.add('open');
 
     // Cargar pdf.js y renderizar todas las páginas
     const url = URL.createObjectURL(pdfBlob);
@@ -4251,7 +4296,7 @@ async function mostrarFacturaPDF(pdfBlob, nombreArchivo){
 
     for(let i = 1; i <= pdfDoc.numPages; i++){
       const page = await pdfDoc.getPage(i);
-      const viewport = page.getViewport({scale: 2});
+      const viewport = page.getViewport({scale: 1.5});
       const canvas = document.createElement('canvas');
       canvas.width = viewport.width;
       canvas.height = viewport.height;
@@ -4265,7 +4310,6 @@ async function mostrarFacturaPDF(pdfBlob, nombreArchivo){
     if(visor) visor.style.display = 'none';
     iframe.style.display = 'block';
     iframe.src = URL.createObjectURL(pdfBlob) + '#toolbar=0';
-    modal.classList.add('open');
   }
 }
 
@@ -5887,19 +5931,25 @@ async function verFacturaSimDB(id){
   const fechaArchivo = new Date(s.fecha + 'T00:00:00').toLocaleDateString('es-CO', {day:'2-digit', month:'2-digit', year:'2-digit'});
   const nombreArchivo = `Cotizacion_${(s.cliente_nombre || 'Cliente').replace(/\s+/g,'_')}_${fechaArchivo.replace(/\//g,'-')}`;
 
-  const pdfBlob = await construirFacturaPDF({
-    titulo: 'Cotización de Factura',
-    fecha, cliente: s.cliente_nombre || 'Sin definir', telefono: '',
-    metodoPago: '', numero: numeroFactura(s.id),
-    items: items.map(it => ({
-      nombre: it.nombre, cantidad: it.cantidad,
-      precio: it.precio, subtotal: it.subtotal,
-      foto: it.foto_url || null
-    })),
-    descuento: 0, total: s.total
-  });
+  abrirModalFacturaCargando();
+  try{
+    const pdfBlob = await construirFacturaPDF({
+      titulo: 'Cotización de Factura',
+      fecha, cliente: s.cliente_nombre || 'Sin definir', telefono: '',
+      metodoPago: '', numero: numeroFactura(s.id),
+      items: items.map(it => ({
+        nombre: it.nombre, cantidad: it.cantidad,
+        precio: it.precio, subtotal: it.subtotal,
+        foto: it.foto_url || null
+      })),
+      descuento: 0, total: s.total
+    });
 
-  mostrarFacturaPDF(pdfBlob, nombreArchivo);
+    mostrarFacturaPDF(pdfBlob, nombreArchivo);
+  }catch(e){
+    cerrarFacturaPreview();
+    showToast('❌ No se pudo generar la cotización: ' + (e.message || e), 'error');
+  }
 }
 
 async function eliminarSimulacionDB(id){
@@ -6266,7 +6316,7 @@ let _chatItems = [];
 
 const CHAT_BIENVENIDA = 'Hola, soy el asistente de Atenas y conozco tu inventario. Mándame un pedido, ej: <i>"2 vestido Leto, 1 jean Lis"</i>, y te digo qué tienes y qué te falta en stock.';
 
-const CHAT_AYUDA = 'Puedo ayudarte con:<br><br>📦 <b>Revisar un pedido:</b> ej. <i>"2 vestido Leto, 1 jean Lis"</i><br>🧾 <b>Simulación de factura:</b> escribe <i>"hazme una simulación de factura"</i><br>🔎 <b>Consultar un producto:</b> <i>"¿cuánto stock hay de Leto?"</i>';
+const CHAT_AYUDA = 'Puedo ayudarte con:<br><br>📦 <b>Revisar un pedido:</b> ej. <i>"2 vestido Leto, 1 jean Lis"</i><br>🧾 <b>Simulación de factura:</b> escribe <i>"hazme una simulación de factura"</i><br>🔎 <b>Consultar un producto:</b> <i>"¿cuánto stock hay de Leto?"</i><br>📊 <b>Análisis:</b> <i>"¿cómo van las ventas este mes?"</i>';
 
 function toggleChat(){
   const panel = document.getElementById('chat-panel');
@@ -6394,13 +6444,13 @@ function extraerConsulta(texto){
   return null;
 }
 
+const PALABRAS_ANALISIS = ['analiza','analisis','reporte','resumen','estadistic','utilidad','proyeccion','como van','como vamos','como va','ventas del','compras del','gastos del','este mes','el mes','ultimo mes','mejor producto','mas vendido','menos vendido','agotado','sin stock','inventario','cuanto vend','cuanto gast','cuanto compr','balance'];
+
+let _chatHistorial = [];
+
 function procesarChat(texto){
   const t = normalizar(texto);
 
-  if(t.includes('ayuda') || /^(hola|buenas|que\s+tal)/.test(t)){
-    appendMsg('bot', CHAT_AYUDA);
-    return;
-  }
   if(t.includes('factura') || t.includes('simul') || t.includes('cotiz') || t.includes('pdf')){
     generarSimulacion();
     return;
@@ -6413,12 +6463,56 @@ function procesarChat(texto){
   }
 
   const items = parsearPedido(texto);
-  if(items.length){
+  const encontroAlguno = items.some(it => buscarCandidatos(it.nombre).length > 0);
+  if(items.length && (/\d/.test(t) || encontroAlguno)){
     revisarPedido(items);
     return;
   }
 
-  appendMsg('bot', 'No te entendí. ' + CHAT_AYUDA);
+  if(PALABRAS_ANALISIS.some(p => t.includes(p))){
+    preguntarAI(texto);
+    return;
+  }
+
+  if(t.includes('ayuda') || /^(hola|buenas|que\s+tal)/.test(t)){
+    appendMsg('bot', CHAT_AYUDA);
+    return;
+  }
+
+  preguntarAI(texto);
+}
+
+async function preguntarAI(texto){
+  const cont = document.getElementById('chat-msgs');
+  const pensando = document.createElement('div');
+  pensando.className = 'chat-msg bot';
+  pensando.innerHTML = '⏳ Pensando...';
+  cont.appendChild(pensando);
+  chatScroll();
+
+  _chatHistorial.push({ role: 'user', content: texto });
+  try{
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: texto, historial: _chatHistorial.slice(-8, -1) })
+    });
+    if(res.status === 501) throw new Error('no-key');
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    pensando.remove();
+    const rta = data.respuesta || 'Sin respuesta.';
+    _chatHistorial.push({ role: 'bot', content: rta });
+    appendMsg('bot', rta);
+  }catch(e){
+    pensando.remove();
+    _chatHistorial = [];
+    if(e.message === 'no-key'){
+      appendMsg('bot', 'La IA aún no está configurada: falta la clave <i>GROQ_API_KEY</i> en Vercel. ' + CHAT_AYUDA);
+    } else {
+      appendMsg('bot', 'No pude conectar con la IA. Verifica que la app esté desplegada en Vercel. ' + CHAT_AYUDA);
+    }
+  }
 }
 
 function revisarPedido(items){
@@ -6483,6 +6577,7 @@ async function generarSimulacion(){
   }));
   const total = items.reduce((s, i) => s + i.subtotal, 0);
   try{
+    abrirModalFacturaCargando();
     const pdfBlob = await construirFacturaPDF({
       titulo: 'Simulación de Factura',
       fecha, cliente: 'SIMULACIÓN', telefono: '',
