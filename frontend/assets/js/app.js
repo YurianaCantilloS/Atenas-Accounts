@@ -6355,6 +6355,14 @@ function chatQuick(texto){
   enviarChat();
 }
 
+let _modoStock = false;
+
+function chatConsultarStock(){
+  _modoStock = true;
+  appendMsg('bot', '🔎 Escribe el nombre del producto que quieres revisar, ej: <i>"ampolla anticaída"</i>.');
+  setTimeout(()=>{ const i = document.getElementById('chat-input'); if(i) i.focus(); }, 60);
+}
+
 function enviarChat(){
   const input = document.getElementById('chat-input');
   if(!input) return;
@@ -6435,16 +6443,15 @@ function actualizarSugerenciasChat(){
   const ej = PRODUCTOS.filter(p => fams.includes(normalizar(p.nombre).split(/\s+/)[0]));
   if(ej.length >= 2){
     const ej1 = ej[0].nombre, ej2 = ej.find(p => normalizar(p.nombre).split(/\s+/)[0] !== normalizar(ej1).split(/\s+/)[0]).nombre || ej[1].nombre;
-    const btn = document.getElementById('chat-quick-pedido');
-    if(btn) btn.onclick = () => chatQuick('Revisar el pedido: 2 ' + ej1 + ', 1 ' + ej2);
     const inp = document.getElementById('chat-input');
     if(inp) inp.placeholder = 'Ej: 2 ' + ej1 + ', 1 ' + ej2;
-    CHAT_AYUDA = 'Puedo ayudarte con:<br><br>📦 <b>Revisar un pedido:</b> ej. <i>"2 ' + escapeHtml(ej1) + ', 1 ' + escapeHtml(ej2) + '"</i><br>🧾 <b>Simulación de factura:</b> escribe <i>"hazme una simulación de factura"</i><br>🔎 <b>Consultar un producto:</b> <i>"¿cuánto stock hay de ...?"</i><br>📊 <b>Análisis:</b> <i>"¿cómo van las ventas este mes?"</i>';
+    CHAT_AYUDA = 'Puedo ayudarte con:<br><br>📦 <b>Revisar un pedido:</b> escribe tu pedido, ej. <i>"2 ' + escapeHtml(ej1) + ', 1 ' + escapeHtml(ej2) + '"</i>, y te digo qué tienes y qué está agotado<br>🧾 <b>Factura:</b> después del pedido escribe <i>"simular factura"</i> y te hago el PDF con los que tienes stock<br>🔎 <b>Consultar un producto:</b> <i>"¿cuánto stock hay de ...?"</i>';
   }
 }
 
 function parsearPedido(texto){
-  let t = texto.replace(/^(revisar|revisa|revisame|verifica|chequea|mira|valida)\s+(el\s+|mi\s+|este\s+)?(pedido|lista|listado)?\s*:?\s*/i, '');
+  let t = texto.replace(/^(revisar|revisa|revisame|verifica|chequea|mira|valida|dime|tengo)\s+(el\s+|mi\s+|mis\s+|este\s+|estos\s+|estas\s+|los\s+|las\s+|unos\s+|un\s+|una\s+)?(pedido|lista|listado|productos|producto|articulos)?\s*:?\s*/i, '');
+  t = t.replace(/^(hola|buenas|hola buenas|buenos dias|hey|oye|oye mira)[,\s!]+(mira|chequea|revisa|revisame|verifica|dime)?\s*(estos|estas|los|las|mis|unos)?\s*(productos|producto|articulos|pedido|lista)?\s*:?\s*/i, '');
   t = t.replace(/^pedido\s*:?\s*/i, '');
   const partes = t.split(/,|;|\n|\by\b/i);
   const items = [];
@@ -6454,7 +6461,7 @@ function parsearPedido(texto){
     const m = p.match(/^(\d+(?:[.,]\d+)?)[\s\-]+(.+)$/);
     const cantidad = m && m[1] ? Math.max(1, Math.round(parseFloat(m[1].replace(',','.')))) : 1;
     const nombre = m ? m[2].trim() : p;
-    if(nombre.length > 1 && !/^(revisar|revisa|pedido|hola|buenas|ayuda)$/i.test(nombre)) items.push({ cantidad, nombre });
+    if(nombre.length > 1 && !/^(revisar|revisa|pedido|hola|buenas|ayuda|gracias)$/i.test(nombre)) items.push({ cantidad, nombre });
   }
   return items;
 }
@@ -6488,6 +6495,12 @@ let _chatHistorial = [];
 
 function procesarChat(texto){
   const t = normalizar(texto);
+
+  if(_modoStock){
+    _modoStock = false;
+    consultarProducto(extraerConsulta(texto) || texto);
+    return;
+  }
 
   if(t.includes('factura') || t.includes('simul') || t.includes('cotiz') || t.includes('pdf')){
     generarSimulacion();
@@ -6566,25 +6579,30 @@ function revisarPedido(items){
     if(!prod){ noEncontrados.push({ nombre: it.nombre, cantidad: it.cantidad }); continue; }
     if(prod.stock < it.cantidad) faltan.push({ prod, cantidad: it.cantidad });
     else ok.push({ prod, cantidad: it.cantidad });
-    _chatItems.push({ prod, cantidad: it.cantidad });
   }
+  if(ok.length) _chatItems = ok.map(o => ({ prod: o.prod, cantidad: o.cantidad }));
 
   let html = '';
-  if(faltan.length){
-    html += `⚠️ <b>Te falta${faltan.length > 1 ? 'n' : ''} ${faltan.length} producto${faltan.length > 1 ? 's' : ''}:</b><br>`;
-    for(const f of faltan){
-      html += `&nbsp;&nbsp;•&nbsp; <b>${f.prod.nombre}</b> (${f.prod.referencia}) — pides <b>${f.cantidad}</b>, tienes <b>${f.prod.stock}</b><br>`;
-    }
-  } else if(ok.length){
-    html += `✅ <b>¡Tienes todo el pedido en stock!</b><br>`;
-  }
   if(ok.length){
-    html += `✅ Disponible${ok.length > 1 ? 's' : ''}: ${ok.map(o => `${o.prod.nombre} (${o.prod.stock})`).join(', ')}<br>`;
+    html += `✅ <b>Tienes stock para el pedido de:</b><br>`;
+    for(const o of ok){
+      html += `&nbsp;&nbsp;•&nbsp; ${o.prod.nombre} — pides <b>${o.cantidad}</b>, tienes <b>${o.prod.stock}</b><br>`;
+    }
+  }
+  if(faltan.length){
+    html += `❌ <b>Agotado${faltan.length > 1 ? 's' : ''} o sin suficiente stock:</b><br>`;
+    for(const f of faltan){
+      html += `&nbsp;&nbsp;•&nbsp; ${f.prod.nombre} — pides <b>${f.cantidad}</b>, tienes <b>${f.prod.stock}</b><br>`;
+    }
   }
   if(noEncontrados.length){
     html += `🤔 No encontré: ${noEncontrados.map(n => `"${escapeHtml(n.nombre)}"`).join(', ')}<br>`;
   }
-  html += 'Escribe <i>"hazme una simulación de factura"</i> para ver el PDF.';
+  if(ok.length){
+    html += `<br>Escribe <i>"simular factura"</i> y te hago el PDF <b>solo con los que tienes stock</b>.`;
+  } else {
+    html += `<br>No quedó ningún producto con stock para facturar.`;
+  }
   appendMsg('bot', html);
 }
 
@@ -6609,7 +6627,7 @@ function consultarProducto(nombre){
 
 async function generarSimulacion(){
   if(!_chatItems || !_chatItems.length){
-    appendMsg('bot', 'Primero mándame el pedido, ej: <i>"2 vestido Leto, 1 jean Lis"</i>, y luego te genero la simulación de factura.');
+    appendMsg('bot', 'Primero mándame tu pedido, ej: <i>"2 ampolla anticaída, 1 vestido de baño"</i>, y luego me dices <i>"simular factura"</i> y te hago el PDF con los que tienes stock.');
     return;
   }
   appendMsg('bot', '🧾 Generando simulación de factura...');
