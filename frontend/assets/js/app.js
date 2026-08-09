@@ -6315,9 +6315,9 @@ function playSonido(tipo){
    ============================================================ */
 let _chatItems = [];
 
-const CHAT_BIENVENIDA = 'Hola, soy el asistente de Atenas y conozco tu inventario. Mándame un pedido, ej: <i>"2 vestido Leto, 1 jean Lis"</i>, y te digo qué tienes y qué te falta en stock.';
+const CHAT_BIENVENIDA = 'Hola, soy el asistente de Atenas y conozco todo tu inventario. Toca una de las sugerencias de abajo o escríbeme tu pedido y te digo qué tienes y qué te falta en stock.';
 
-const CHAT_AYUDA = 'Puedo ayudarte con:<br><br>📦 <b>Revisar un pedido:</b> ej. <i>"2 vestido Leto, 1 jean Lis"</i><br>🧾 <b>Simulación de factura:</b> escribe <i>"hazme una simulación de factura"</i><br>🔎 <b>Consultar un producto:</b> <i>"¿cuánto stock hay de Leto?"</i><br>📊 <b>Análisis:</b> <i>"¿cómo van las ventas este mes?"</i>';
+let CHAT_AYUDA = 'Puedo ayudarte con:<br><br>📦 <b>Revisar un pedido:</b> escríbeme los productos y sus cantidades<br>🧾 <b>Simulación de factura:</b> escribe <i>"hazme una simulación de factura"</i><br>🔎 <b>Consultar un producto:</b> <i>"¿cuánto stock hay de ...?"</i><br>📊 <b>Análisis:</b> <i>"¿cómo van las ventas este mes?"</i>';
 
 function toggleChat(){
   const panel = document.getElementById('chat-panel');
@@ -6429,6 +6429,17 @@ function actualizarSugerenciasChat(){
     b.title = 'Preguntar por ' + fam;
     b.onclick = () => chatQuick('¿qué tienes de ' + fam + '?');
     wrap.appendChild(b);
+  }
+
+  const fams = top.map(e => e[0]);
+  const ej = PRODUCTOS.filter(p => fams.includes(normalizar(p.nombre).split(/\s+/)[0]));
+  if(ej.length >= 2){
+    const ej1 = ej[0].nombre, ej2 = ej.find(p => normalizar(p.nombre).split(/\s+/)[0] !== normalizar(ej1).split(/\s+/)[0]).nombre || ej[1].nombre;
+    const btn = document.getElementById('chat-quick-pedido');
+    if(btn) btn.onclick = () => chatQuick('Revisar el pedido: 2 ' + ej1 + ', 1 ' + ej2);
+    const inp = document.getElementById('chat-input');
+    if(inp) inp.placeholder = 'Ej: 2 ' + ej1 + ', 1 ' + ej2;
+    CHAT_AYUDA = 'Puedo ayudarte con:<br><br>📦 <b>Revisar un pedido:</b> ej. <i>"2 ' + escapeHtml(ej1) + ', 1 ' + escapeHtml(ej2) + '"</i><br>🧾 <b>Simulación de factura:</b> escribe <i>"hazme una simulación de factura"</i><br>🔎 <b>Consultar un producto:</b> <i>"¿cuánto stock hay de ...?"</i><br>📊 <b>Análisis:</b> <i>"¿cómo van las ventas este mes?"</i>';
   }
 }
 
