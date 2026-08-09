@@ -1738,6 +1738,7 @@ function siguienteReferencia(){
  document.addEventListener('DOMContentLoaded', async () => {
    initConfig();
    await cargarProductos(); // primero siempre
+   actualizarSugerenciasChat();
   const { data: config } = await sb.from('configuracion').select('*').eq('id', 1).single();
   if(config && config.meta_ventas_mes) _metaVentas = config.meta_ventas_mes;
   await cargarClientes();
@@ -6326,6 +6327,7 @@ function toggleChat(){
   if(abrir){
     const rp = document.getElementById('resumen-panel');
     if(rp) rp.classList.remove('open');
+    actualizarSugerenciasChat();
     const msgs = document.getElementById('chat-msgs');
     if(msgs && msgs.children.length === 0) appendMsg('bot', CHAT_BIENVENIDA);
     setTimeout(()=>{ const i = document.getElementById('chat-input'); if(i) i.focus(); }, 80);
@@ -6403,6 +6405,31 @@ function buscarCandidatos(nombre){
 function buscarProducto(nombre){
   const cands = buscarCandidatos(nombre);
   return cands.length === 1 ? cands[0] : null;
+}
+
+function actualizarSugerenciasChat(){
+  const wrap = document.getElementById('chat-sugerencias');
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  const grupos = {};
+  for(const p of PRODUCTOS){
+    const primera = normalizar(p.nombre).split(/\s+/)[0];
+    if(!primera || primera.length < 3 || _STOP_BUSQ.has(primera)) continue;
+    grupos[primera] = (grupos[primera] || 0) + 1;
+  }
+  const top = Object.entries(grupos).sort((a,b) => b[1] - a[1]).slice(0, 6);
+  if(!top.length) return;
+  const titulo = document.createElement('p');
+  titulo.className = 'sug-titulo';
+  titulo.textContent = 'Mis productos';
+  wrap.appendChild(titulo);
+  for(const [fam] of top){
+    const b = document.createElement('button');
+    b.textContent = fam.charAt(0).toUpperCase() + fam.slice(1);
+    b.title = 'Preguntar por ' + fam;
+    b.onclick = () => chatQuick('¿qué tienes de ' + fam + '?');
+    wrap.appendChild(b);
+  }
 }
 
 function parsearPedido(texto){
@@ -6507,10 +6534,15 @@ async function preguntarAI(texto){
   }catch(e){
     pensando.remove();
     _chatHistorial = [];
+    console.error('Error /api/chat:', e);
     if(e.message === 'no-key'){
       appendMsg('bot', 'La IA aún no está configurada: falta la clave <i>GROQ_API_KEY</i> en Vercel. ' + CHAT_AYUDA);
+    } else if(e.message === 'HTTP 404'){
+      appendMsg('bot', 'No encontré la función de la IA. Esto pasa cuando pruebas la página abierta en tu computador o cuando el despliegue de Vercel aún no tiene la carpeta <i>api/</i>. ' + CHAT_AYUDA);
+    } else if(e.message.startsWith('HTTP')){
+      appendMsg('bot', 'La IA respondió con el error <b>' + e.message + '</b>. Entra a vercel.com → tu proyecto → <b>Logs</b> para ver el detalle. ' + CHAT_AYUDA);
     } else {
-      appendMsg('bot', 'No pude conectar con la IA. Verifica que la app esté desplegada en Vercel. ' + CHAT_AYUDA);
+      appendMsg('bot', 'No pude conectar con la IA: <b>' + escapeHtml(e.message) + '</b>. Si estás probando desde tu computador, abre tu página de Vercel (la que termina en <i>.vercel.app</i>), no el archivo local. ' + CHAT_AYUDA);
     }
   }
 }
