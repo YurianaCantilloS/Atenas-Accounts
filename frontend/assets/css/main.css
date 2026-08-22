@@ -652,6 +652,14 @@ html, body { height: 100%; }
 .bar-chart-bar.actual{background:linear-gradient(180deg,var(--fucsia-light),var(--fucsia));box-shadow:0 4px 12px rgba(233,30,140,.25);}
 .bar-chart-value{position:absolute;top:-22px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:800;color:var(--gris-80);white-space:nowrap;background:var(--surface);padding:2px 6px;border-radius:6px;box-shadow:var(--shadow);}
 .bar-chart-label{font-size:12px;font-weight:700;color:var(--gris-80);margin-top:10px;text-align:center;}
+.bar-chart-value .bcv-short{display:none;}
+@media (max-width:768px){
+  .bar-chart-vertical{gap:8px;padding:24px 4px 0;}
+  .bar-chart-col{max-width:none;}
+  .bar-chart-value{top:-20px;font-size:9.5px;padding:2px 5px;z-index:2;}
+  .bar-chart-value .bcv-full{display:none;}
+  .bar-chart-value .bcv-short{display:inline;}
+}
 
 .top3-products{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;align-items:stretch;}
 .top3-card{flex:1;background:var(--surface);border-radius:14px;border:1.5px solid var(--gris-20);overflow:hidden;display:flex;flex-direction:column;text-align:center;position:relative;transition:transform .2s;}
@@ -1243,6 +1251,13 @@ textarea{
 .chat-msg.user{align-self:flex-end;background:var(--fucsia);color:#fff;border-bottom-right-radius:4px;}
 .chat-msg.bot{align-self:flex-start;background:var(--gris-10);color:var(--texto);border-bottom-left-radius:4px;border:1px solid var(--gris-20);}
 .chat-msg.bot b{color:var(--fucsia-dark);}
+.chat-btn-accion{
+  display:inline-block;margin-top:8px;border:none;border-radius:50px;cursor:pointer;
+  background:linear-gradient(135deg,var(--fucsia),var(--fucsia-dark));color:#fff;
+  padding:9px 16px;font-size:12px;font-weight:800;font-family:'Poppins',sans-serif;
+  box-shadow:0 4px 12px rgba(233,30,131,.35);transition:transform .15s, box-shadow .15s;
+}
+.chat-btn-accion:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(233,30,131,.45);}
 .chat-quick{display:flex;gap:6px;padding:8px 10px 0;flex-wrap:wrap;}
 .chat-quick button{
   border:1.5px solid var(--celeste-dark);color:var(--fucsia-dark);background:transparent;

@@ -40,7 +40,13 @@ REGLAS DE RESPUESTA:
 - Los montos van en pesos colombianos con $ y puntos: $1.234.500.
 - NUNCA inventes datos. Antes de responder sobre inventario, stock, pedidos, ventas, compras, gastos o análisis, usa la herramienta correspondiente para consultar datos reales.
 - Si una herramienta no encuentra algo, dilo honestamente.
-- Si te piden una simulación de factura, indica al usuario que primero envíe su pedido y luego escriba "hazme una simulación de factura" (el PDF se genera en su pantalla).`;
+- Cuando el usuario envíe una lista con cantidades (ej: "3 mascarillas puntos negros, 5 colágeno de labios"), usa revisar_pedido e informa claramente: qué hay disponible (con unidades), qué falta y CUÁNTAS unidades faltan de cada uno, y qué no se encontró en el inventario. Al final dile que puede tocar el botón "Simular factura" del chat para generar el PDF solo con los productos disponibles.
+
+ANÁLISIS QUE SABES RESPONDER (con consultar_datos):
+- "¿Qué productos me dejan mayor rentabilidad?" → tipo 'rentabilidad': responde con el ranking por margen (%) y por utilidad real vendida.
+- "¿Qué meses del año he vendido más?" → tipo 'ventas_por_anio': ordena los meses por total vendido y destaca el mejor.
+- "¿Cuáles son los productos que más he vendido?" → tipo 'top_productos_total' (histórico) o 'top_productos' (de un mes puntual).
+- "Recomiéndame productos para vender más este mes" → tipo 'recomendaciones' y cruza: alta rotación (90 días) + buen margen + stock disponible; también avisa cuáles best-sellers están sin stock y conviene reponer.`;
 
 const tools = [
   {
@@ -75,13 +81,13 @@ const tools = [
     type: 'function',
     function: {
       name: 'consultar_datos',
-      description: 'Consulta datos del negocio para análisis: ventas del mes, últimos 6 meses, top productos, productos sin stock, inventario, gastos, compras o utilidad.',
+      description: 'Consulta datos del negocio para análisis: ventas del mes, ventas por año (mes a mes), últimos 6 meses, top productos del mes, top productos histórico, rentabilidad por producto, recomendaciones para vender más, productos sin stock, inventario, gastos, compras o utilidad.',
       parameters: {
         type: 'object',
         properties: {
           tipo: {
             type: 'string',
-            enum: ['ventas_mes', 'ventas_6_meses', 'top_productos', 'productos_sin_stock', 'inventario', 'gastos_mes', 'compras_mes', 'utilidad']
+            enum: ['ventas_mes', 'ventas_6_meses', 'ventas_por_anio', 'top_productos', 'top_productos_total', 'rentabilidad', 'recomendaciones', 'productos_sin_stock', 'inventario', 'gastos_mes', 'compras_mes', 'utilidad']
           },
           mes: { type: 'number', description: 'Mes (1-12). Por defecto el mes actual.' },
           anio: { type: 'number', description: 'Año, ej: 2026. Por defecto el año actual.' }
@@ -257,6 +263,106 @@ async function toolConsultarDatos({ tipo, mes, anio }) {
         .slice(0, 5);
       return { mes, anio, top };
     }
+    case 'ventas_por_anio': {
+      const ventas = (await getVentas()).filter(v => v.anio === anio);
+      const porMes = Array.from({ length: 12 }, (_, i) => ({ mes: i + 1, total: 0, cantidad: 0 }));
+      for (const v of ventas) {
+        const idx = (v.mes || 1) - 1;
+        if (idx < 0 || idx > 11) continue;
+        porMes[idx].total += v.total || 0;
+        porMes[idx].cantidad++;
+      }
+      const mejor = [...porMes].sort((a, b) => b.total - a.total)[0];
+      return {
+        anio,
+        meses_ordenados_por_venta: porMes
+          .sort((a, b) => b.total - a.total)
+          .map(m => ({ mes: m.mes, total_format: fmtCOP(m.total), cantidad_ventas: m.cantidad })),
+        mejor_mes: mejor.mes,
+        mejor_mes_total: fmtCOP(mejor.total)
+      };
+    }
+    case 'top_productos_total': {
+      const agg = {};
+      for (const it of await getVentaItems()) {
+        const nom = it.producto_nombre || 'Sin nombre';
+        agg[nom] = agg[nom] || { cantidad: 0, total: 0 };
+        agg[nom].cantidad += it.cantidad || 1;
+        agg[nom].total += (it.precio_unitario || 0) * (it.cantidad || 1);
+      }
+      const top = Object.entries(agg)
+        .map(([nombre, d]) => ({ nombre, ...d, total_format: fmtCOP(d.total) }))
+        .sort((a, b) => b.cantidad - a.cantidad)
+        .slice(0, 10);
+      return { periodo: 'todo el historial', top };
+    }
+    case 'rentabilidad': {
+      const productos = await getProductos();
+      const conCosto = productos.filter(p => p.precio > 0 && p.costo > 0);
+      const porMargen = conCosto
+        .map(p => ({
+          nombre: p.nombre, referencia: p.referencia, stock: p.stock || 0,
+          costo: p.costo, precio: p.precio,
+          ganancia_unidad: p.precio - p.costo,
+          ganancia_unidad_format: fmtCOP(p.precio - p.costo),
+          margen_pct: Math.round(((p.precio - p.costo) / p.costo) * 100)
+        }))
+        .sort((a, b) => b.margen_pct - a.margen_pct)
+        .slice(0, 10);
+      const prodPorNombre = {};
+      for (const p of conCosto) prodPorNombre[normalizar(p.nombre)] = p;
+      const utilVendida = {};
+      for (const it of await getVentaItems()) {
+        const p = prodPorNombre[normalizar(it.producto_nombre || '')];
+        if (!p) continue;
+        const u = utilVendida[p.nombre] || { utilidad: 0, unidades: 0 };
+        u.utilidad += (p.precio - p.costo) * (it.cantidad || 1);
+        u.unidades += it.cantidad || 1;
+        utilVendida[p.nombre] = u;
+      }
+      const porUtilidadVendida = Object.entries(utilVendida)
+        .map(([nombre, d]) => ({ nombre, unidades_vendidas: d.unidades, utilidad: d.utilidad, utilidad_format: fmtCOP(d.utilidad) }))
+        .sort((a, b) => b.utilidad - a.utilidad)
+        .slice(0, 10);
+      return {
+        top_por_margen: porMargen,
+        top_por_utilidad_real_vendida: porUtilidadVendida
+      };
+    }
+    case 'recomendaciones': {
+      const productos = await getProductos();
+      const ventas = await getVentas();
+      const limite = Date.now() - 90 * 24 * 3600 * 1000;
+      const idsRecientes = new Set(
+        ventas.filter(v => { const t = new Date(v.created_at).getTime(); return t >= limite; }).map(v => v.id)
+      );
+      const vendidos = {};
+      for (const it of await getVentaItems()) {
+        if (!idsRecientes.has(it.venta_id)) continue;
+        const nom = it.producto_nombre || '';
+        vendidos[nom] = (vendidos[nom] || 0) + (it.cantidad || 1);
+      }
+      const prodPorNombre = {};
+      for (const p of productos) prodPorNombre[normalizar(p.nombre)] = p;
+      const candidatos = [];
+      for (const [nom, uni] of Object.entries(vendidos)) {
+        const p = prodPorNombre[normalizar(nom)];
+        if (!p) continue;
+        candidatos.push({
+          nombre: p.nombre,
+          stock_actual: p.stock || 0,
+          precio: p.precio,
+          margen_pct: p.costo > 0 ? Math.round(((p.precio - p.costo) / p.costo) * 100) : 0,
+          unidades_vendidas_90_dias: uni
+        });
+      }
+      candidatos.sort((a, b) => b.unidades_vendidas_90_dias - a.unidades_vendidas_90_dias);
+      return {
+        mas_vendidos_ultimos_90_dias: candidatos.slice(0, 8),
+        bestsellers_sin_stock_a_reponer: candidatos.filter(c => c.stock_actual <= 0).slice(0, 5),
+        nota: 'Recomienda combinando alta rotación + buen margen + stock disponible. Si un best-seller está sin stock, sugiere reponerlo.'
+      };
+    }
     case 'productos_sin_stock': {
       const sinStock = (await getProductos()).filter(p => !p.stock || p.stock <= 0).map(p => ({ nombre: p.nombre, referencia: p.referencia, precio: p.precio }));
       return { cantidad: sinStock.length, productos: sinStock };
@@ -299,7 +405,7 @@ async function toolConsultarDatos({ tipo, mes, anio }) {
       };
     }
     default:
-      return { error: 'Tipo no válido. Usa uno de: ventas_mes, ventas_6_meses, top_productos, productos_sin_stock, inventario, gastos_mes, compras_mes, utilidad.' };
+      return { error: 'Tipo no válido. Usa uno de: ventas_mes, ventas_6_meses, ventas_por_anio, top_productos, top_productos_total, rentabilidad, recomendaciones, productos_sin_stock, inventario, gastos_mes, compras_mes, utilidad.' };
   }
 }
 

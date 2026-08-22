@@ -1737,6 +1737,12 @@ function siguienteReferencia(){
 // Cargar al iniciar
  document.addEventListener('DOMContentLoaded', async () => {
    initConfig();
+   // Precalienta logo + fuentes de la factura en segundo plano: "Ver factura" abre mucho más rápido
+   logoMini().catch(() => {});
+   if(document.fonts && document.fonts.load){
+     ['600 11px "Poppins"', '700 12px "Poppins"', '800 30px "Poppins"', '400 34px "Great Vibes"']
+       .forEach(f => { try{ document.fonts.load(f); }catch(e){} });
+   }
    await cargarProductos(); // primero siempre
    actualizarSugerenciasChat();
   const { data: config } = await sb.from('configuracion').select('*').eq('id', 1).single();
@@ -3663,6 +3669,39 @@ async function logoMini(){
   return _fxLogoData;
 }
 
+/* Miniaturas de fotos de productos en caché: en la factura solo se ven a 46px,
+   así que descargar la foto en resolución completa es el mayor cuello de botella al generar el PDF */
+const _fxImgMiniCache = new Map();
+async function imagenMini(url){
+  if(!url) return '';
+  if(_fxImgMiniCache.has(url)) return _fxImgMiniCache.get(url);
+  let resultado = url;
+  try {
+    const img = await new Promise((res, rej) => {
+      const im = new Image();
+      im.crossOrigin = 'anonymous';
+      im.onload = () => res(im);
+      im.onerror = rej;
+      im.src = url;
+    });
+    const MAX = 200;
+    const w = img.naturalWidth || MAX, h = img.naturalHeight || MAX;
+    const esc = Math.min(1, MAX / Math.max(w, h));
+    if(esc < 1){
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(w * esc));
+      c.height = Math.max(1, Math.round(h * esc));
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      resultado = c.toDataURL('image/jpeg', 0.85);
+    }
+  } catch(e){ /* sin CORS u otro fallo: se usa la URL original */ }
+  _fxImgMiniCache.set(url, resultado);
+  return resultado;
+}
+
 /** Iconos lineales usados en la factura */
 function fxIcon(nombre, tam, color){
   const s = tam || 14;
@@ -4103,7 +4142,7 @@ async function renderPaginaFactura(cont, {numero, titulo, fecha, cliente, metodo
     backgroundColor: '#FFFFFF',
     scrollX: 0,
     scrollY: 0,
-    windowWidth: 12000,
+    windowWidth: 1024,
     windowHeight: Math.max(page.offsetHeight, 1200),
     logging: false
   });
@@ -4125,11 +4164,11 @@ async function construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPago
 
   showToast('⏳ Generando factura…', 'info');
   const logo = await logoMini();
-  const rows = (items || []).map(it => ({
+  const rows = await Promise.all((items || []).map(async it => ({
     nombre: it.nombre, cantidad: it.cantidad,
     precio: it.precio, subtotal: it.subtotal,
-    foto: it.foto || '', desc: it.desc || ''
-  }));
+    foto: await imagenMini(it.foto || ''), desc: it.desc || ''
+  })));
 
   const html = construirFacturaHTML({
     numero, titulo, fecha, cliente, telefono, metodoPago,
@@ -4213,14 +4252,14 @@ async function construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPago
     }
 
     const pdf = new jsPDF({orientation: 'portrait', unit: 'mm', format: 'a4'});
-    const canvases = [];
-    for(let p = 0; p < layoutPages.length; p++){
-      const lp = layoutPages[p];
-      const canvas = await renderPaginaFactura(cont, {numero, titulo, fecha, cliente, metodoPago, rows, logo, total, descuento: descuento || 0}, lp.type, String(p + 1), ESCALA);
-      canvases.push(canvas);
+    const datosPagina = {numero, titulo, fecha, cliente, metodoPago, rows, logo, total, descuento: descuento || 0};
+    const canvases = await Promise.all(layoutPages.map((lp, p) =>
+      renderPaginaFactura(cont, datosPagina, lp.type, String(p + 1), ESCALA)
+    ));
+    canvases.forEach((canvas, p) => {
       if(p > 0) pdf.addPage();
       pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297);
-    }
+    });
 
     return { blob: pdf.output('blob'), canvases };
   } finally {
@@ -5171,6 +5210,18 @@ function cargarTopDias(ventas){
   }).filter(Boolean).join('');
 }
 
+/** Formato abreviado para etiquetas compactas: $1,2M / $850K */
+function formatCOPCorto(n){
+  n = Number(n) || 0;
+  const abs = Math.abs(n);
+  if(abs >= 1e6){
+    const m = n / 1e6;
+    return '$' + (m >= 10 ? String(Math.round(m)) : m.toFixed(1).replace('.', ',')) + 'M';
+  }
+  if(abs >= 1e3) return '$' + Math.round(n / 1e3) + 'K';
+  return '$' + Math.round(n);
+}
+
 async function cargarGrafico6Meses(anio){
   const hoy = new Date();
   const mesActual = hoy.getMonth() + 1;
@@ -5198,11 +5249,12 @@ async function cargarGrafico6Meses(anio){
     const pct = Math.round((totales[i] / maxVal) * 100);
     const esActual = i === 5;
     const label = MESES_NOMBRE[mes].slice(0,3);
-   const valor = formatCOP(totales[i]);
+    const valor = formatCOP(totales[i]);
+    const valorCorto = formatCOPCorto(totales[i]);
     return `
       <div class="bar-chart-col" data-mes="${mes}">
         <div class="bar-chart-bar ${esActual ? 'actual' : ''}" style="height:${Math.max(pct,2)}%;">
-          <span class="bar-chart-value">${valor}</span>
+          <span class="bar-chart-value"><span class="bcv-full">${valor}</span><span class="bcv-short">${valorCorto}</span></span>
         </div>
         <div class="bar-chart-label">${label}</div>
       </div>
@@ -6576,18 +6628,20 @@ function revisarPedido(items){
     }
   }
   if(faltan.length){
-    html += `❌ <b>Agotado${faltan.length > 1 ? 's' : ''} o sin suficiente stock:</b><br>`;
+    html += `⚠️ <b>Sin suficiente stock:</b><br>`;
     for(const f of faltan){
-      html += `&nbsp;&nbsp;•&nbsp; ${f.prod.nombre} — pides <b>${f.cantidad}</b>, tienes <b>${f.prod.stock}</b><br>`;
+      const faltantes = f.cantidad - f.prod.stock;
+      const estado = f.prod.stock <= 0 ? 'AGOTADO' : `tienes ${f.prod.stock}, te faltan ${faltantes}`;
+      html += `&nbsp;&nbsp;•&nbsp; ${f.prod.nombre} — pides <b>${f.cantidad}</b>, <b>${estado}</b><br>`;
     }
   }
   if(noEncontrados.length){
     html += `🤔 No encontré: ${noEncontrados.map(n => `"${escapeHtml(n.nombre)}"`).join(', ')}<br>`;
   }
   if(ok.length){
-    html += `<br>Escribe <i>"simular factura"</i> y te hago el PDF <b>solo con los que tienes stock</b>.`;
+    html += `<br>Si quieres, genera la factura con los productos disponibles:<br><button class="chat-btn-accion" onclick="generarSimulacion()">🧾 Simular factura</button>`;
   } else {
-    html += `<br>No quedó ningún producto con stock para facturar.`;
+    html += `<br>No quedó ningún producto con stock para facturar. Abastece el inventario e inténtalo de nuevo.`;
   }
   appendMsg('bot', html);
 }
