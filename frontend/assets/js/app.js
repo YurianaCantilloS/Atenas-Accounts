@@ -6724,18 +6724,23 @@ async function generarSimulacion(){
   }
 }
 
-/* ── Copiar al portapapeles: clic sobre un valor con $ ───────── */
+/* ── Copiar al portapapeles: clic simple sobre un valor con $ ── */
+let _copyTimer = null;
 document.addEventListener('click', (e) => {
   const t = e.target;
   if(!t || t.nodeType !== 1) return;
   if(t.closest('button, input, select, textarea, a, label, [onclick], [onchange], [contenteditable], [data-no-copy]')) return;
-  const texto = (t.innerText || t.textContent || '').trim();
+  const texto = Array.from(t.childNodes).filter(n => n.nodeType === 3).map(n => n.textContent).join('').trim();
+  if(!texto) return;
   const m = texto.match(/[-]?\$\s*[\d][\d.,]*/);
   if(!m) return;
   const valor = m[0].trim();
-  if(navigator.clipboard && navigator.clipboard.writeText){
+  if(!(navigator.clipboard && navigator.clipboard.writeText)) return;
+  clearTimeout(_copyTimer);
+  _copyTimer = setTimeout(() => {
     navigator.clipboard.writeText(valor)
       .then(() => showToast('📋 Copiado: ' + valor, 'info'))
       .catch(() => {});
-  }
+  }, 300);
 });
+document.addEventListener('dblclick', () => { clearTimeout(_copyTimer); });

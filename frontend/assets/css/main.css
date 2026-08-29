@@ -558,8 +558,8 @@ html, body { height: 100%; }
 .pendiente-row{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--gris-20);font-size:13px;}
 .pendiente-row:last-child{border-bottom:none;}
 .pendiente-row.pagado{opacity:.5;text-decoration:line-through;}
-.pendiente-row.resaltado{background:#FFF9C4;border-left:3px solid #F4C518;}
-[data-modo="noche"] .pendiente-row.resaltado{background:rgba(255,213,79,.22);border-left-color:#F4C518;}
+.pendiente-row.resaltado{background:#FFFDE7;border-left:3px solid #F4C518;}
+[data-modo="noche"] .pendiente-row.resaltado{background:rgba(255,213,79,.16);border-left-color:#F4C518;}
 .pendiente-info{display:flex;flex-direction:column;gap:2px;}
 .pendiente-tipo{font-size:10px;font-weight:800;color:var(--gris-60);text-transform:uppercase;}
 .pendiente-monto{font-weight:800;color:var(--rojo);}
