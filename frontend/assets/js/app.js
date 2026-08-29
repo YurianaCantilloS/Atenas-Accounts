@@ -83,6 +83,8 @@ function showView(name){
 
   // La alerta roja de cierre de mes NO se muestra en la vista Caja
   actualizarVisibilidadBannerCierre();
+
+  localStorage.setItem('atenas_vista_actual', name);
 }
 
 
@@ -237,6 +239,8 @@ function toggleResumen(){
   document.getElementById('resumen-panel').classList.toggle('open');
   const cp = document.getElementById('chat-panel');
   if(cp) cp.classList.remove('open');
+  const launcher = document.querySelector('.chat-launcher');
+  if(launcher) launcher.classList.remove('hidden');
 }
 
 /** Guardar nuevo saldo de banco (demo visual) */
@@ -869,6 +873,7 @@ function eliminarPendiente(id){
     }
 
     await sb.from('pendientes').delete().eq('id', id);
+    quitarPendienteResaltado(id);
     showToast('🗑️ Pendiente eliminado', 'info');
     await cargarPendientes();
     await cargarCaja();
@@ -1769,6 +1774,9 @@ function siguienteReferencia(){
   if(selCompras) selCompras.value = mesHoy;
   const selGastos = document.getElementById('g-mes');
   if(selGastos) selGastos.value = mesHoy;
+   // Restaurar la última vista visitada al recargar
+  const vistaGuardada = localStorage.getItem('atenas_vista_actual');
+  if(vistaGuardada && document.getElementById('view-' + vistaGuardada)) showView(vistaGuardada);
    // Mostrar fecha actual en dashboard
   const hoy = new Date();
   const diasSemana = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
@@ -4749,11 +4757,12 @@ function renderPendientes(){
     return;
   }
 
+  const resaltados = getPendientesResaltados();
   lista.innerHTML = PENDIENTES.map(p => {
     const fecha = new Date(p.fecha + 'T00:00:00').toLocaleDateString('es-CO');
     const fuenteLabel = p.fuente ? (p.fuente === 'efectivo' ? `${ico('cash', 11)} Efectivo` : p.fuente === 'nequi' ? 'nequi' : 'Bancolombia') : `${ico('clock', 11)} A crédito`;
     return `
-      <div class="pendiente-row" id="pend-${p.id}" data-monto="${p.monto}">
+      <div class="pendiente-row${resaltados.has(p.id) ? ' resaltado' : ''}" id="pend-${p.id}" data-monto="${p.monto}" ondblclick="toggleResaltarPendiente('${p.id}')">
         <div class="pendiente-info">
           <strong>${p.descripcion}</strong>
           <span class="pendiente-tipo">${fuenteLabel} · ${fecha}</span>
@@ -4776,6 +4785,26 @@ function renderPendientes(){
   }).join('');
 
   recalcPendientesTotal();
+}
+
+/* Resaltado de pendientes (doble clic): marca cuáles deben pagarse este mes */
+function getPendientesResaltados(){
+  try{ return new Set(JSON.parse(localStorage.getItem('pendientes_resaltados') || '[]')); }
+  catch(e){ return new Set(); }
+}
+function guardarPendientesResaltados(set){
+  localStorage.setItem('pendientes_resaltados', JSON.stringify([...set]));
+}
+function toggleResaltarPendiente(id){
+  const set = getPendientesResaltados();
+  if(set.has(id)){ set.delete(id); } else { set.add(id); }
+  guardarPendientesResaltados(set);
+  const row = document.getElementById('pend-' + id);
+  if(row) row.classList.toggle('resaltado', set.has(id));
+}
+function quitarPendienteResaltado(id){
+  const set = getPendientesResaltados();
+  if(set.delete(id)) guardarPendientesResaltados(set);
 }
 
 async function guardarPendiente(){
@@ -4902,6 +4931,7 @@ async function confirmarAbonoPendiente(){
 
   if(pagado){
     await sb.from('pendientes').delete().eq('id', _abonoPendienteId);
+    quitarPendienteResaltado(_abonoPendienteId);
     showToast(`✅ Pendiente pagado completamente y eliminado`, 'success');
   } else {
     showToast(`✅ Abono de ${formatCOP(monto)} registrado — Resta: ${formatCOP(pendiente.monto - nuevoAbonado)}`, 'success');
@@ -6374,8 +6404,10 @@ let CHAT_AYUDA = 'Puedo ayudarte con:<br><br>📦 <b>Revisar un pedido:</b> escr
 function toggleChat(){
   const panel = document.getElementById('chat-panel');
   if(!panel) return;
+  const launcher = document.querySelector('.chat-launcher');
   const abrir = !panel.classList.contains('open');
   panel.classList.toggle('open');
+  if(launcher) launcher.classList.toggle('hidden', abrir);
   if(abrir){
     const rp = document.getElementById('resumen-panel');
     if(rp) rp.classList.remove('open');
@@ -6691,3 +6723,19 @@ async function generarSimulacion(){
     appendMsg('bot', '❌ Ocurrió un error generando la factura: ' + e.message);
   }
 }
+
+/* ── Copiar al portapapeles: clic sobre un valor con $ ───────── */
+document.addEventListener('click', (e) => {
+  const t = e.target;
+  if(!t || t.nodeType !== 1) return;
+  if(t.closest('button, input, select, textarea, a, label, [onclick], [onchange], [contenteditable], [data-no-copy]')) return;
+  const texto = (t.innerText || t.textContent || '').trim();
+  const m = texto.match(/[-]?\$\s*[\d][\d.,]*/);
+  if(!m) return;
+  const valor = m[0].trim();
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(valor)
+      .then(() => showToast('📋 Copiado: ' + valor, 'info'))
+      .catch(() => {});
+  }
+});
