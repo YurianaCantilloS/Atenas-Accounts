@@ -22,6 +22,9 @@ function showView(name){
   const fabResumen = document.querySelector('.fab-resumen');
   if(fabResumen) fabResumen.style.display = name === 'caja' ? 'none' : 'flex';
   if(name === 'envios') cargarEnvios();
+
+  // La alerta roja de cierre de mes NO se muestra en la vista Caja
+  actualizarVisibilidadBannerCierre();
 }
 
 
@@ -772,9 +775,9 @@ function eliminarPendiente(id){
     
     if(p){
       const saldoRestante = p.monto - (p.monto_abonado || 0);
-      const fuente = (p.fuente || 'efectivo').toLowerCase();
+      const fuente = (p.fuente || '').toLowerCase();
       
-      if(saldoRestante > 0){
+      if(saldoRestante > 0 && fuente){
         const { data: cajaActual } = await sb.from('caja_saldo').select('*').eq('id',1).single();
         const nuevoValor = (cajaActual[fuente] || 0) + saldoRestante;
         await sb.from('caja_saldo').update({ [fuente]: nuevoValor }).eq('id', 1);
@@ -2548,7 +2551,7 @@ function renderVentas(){
             <div class="venta-grupo-meta">
               ${metodoBadge}
               <span style="font-size:11px;color:var(--gris-60);">${new Date(v.fecha+'T00:00:00').toLocaleDateString('es-CO')}</span>
-              <span class="venta-grupo-total">${formatCOP(v.total)}</span>
+              <span class="venta-grupo-total">${formatCOP(v.tipo === 'credito' && v.saldo_credito > 0 ? v.saldo_credito : v.total)}</span>
               <span class="venta-chev">▼</span>
               <button class="btn-icon" onclick="generarRecibo('${v.id}')" title="Factura">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
@@ -2579,7 +2582,7 @@ function renderVentas(){
             <div class="venta-grupo-meta">
               ${metodoBadge}
               <span style="font-size:11px;color:var(--gris-60);">${new Date(v.fecha+'T00:00:00').toLocaleDateString('es-CO')}</span>
-              <span class="venta-grupo-total">${formatCOP(v.total)}</span>
+              <span class="venta-grupo-total">${formatCOP(v.tipo === 'credito' && v.saldo_credito > 0 ? v.saldo_credito : v.total)}</span>
               <button class="btn-icon" onclick="generarRecibo('${v.id}')" title="Factura">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
               </button>
@@ -2717,7 +2720,7 @@ async function guardarVenta(){
         descripcion: `Venta crédito — ${clienteEl.value.trim()} (${etiqueta})`,
         monto: total,
         monto_abonado: 0,
-        fuente: 'efectivo',
+        fuente: null,
         pagado: false,
         fecha: hoy.toISOString().split('T')[0],
         venta_id: newVenta.id
@@ -3334,33 +3337,43 @@ async function confirmarAbonoVenta(){
 
   if(error){ showToast('❌ Error: ' + error.message, 'error'); return; }
 
- // Sumar a caja según fuente
+  // Sumar a caja según fuente — el dinero sí está ingresando ahora
   await actualizarSaldoCaja(fuente, monto, `Abono venta — ${formatCOP(monto)}`);
 
-  if(nuevoSaldo === 0){
-    // Eliminar de pendientes porque ya está pagado
-    await sb.from('pendientes').delete().eq('venta_id', _abonoVentaId);
-    showToast(`✅ Venta pagada completamente`, 'success');
-  } else {
-    // Actualizar abono en pendiente
-    await sb.from('pendientes')
-      .update({ monto_abonado: pendiente.monto - nuevoSaldo })
-      .eq('venta_id', _abonoVentaId);
-    showToast(`✅ Abono de ${formatCOP(monto)} — Saldo restante: ${formatCOP(nuevoSaldo)}`, 'success');
-  }
-if(nuevoSaldo === 0){
-    const fuente = document.getElementById('abono-venta-fuente').value;
-    const metodo = fuente === 'efectivo' ? 'efectivo' : 'transferencia';
-    const banco = fuente === 'nequi' ? 'Nequi' : fuente === 'bancolombia' ? 'Bancolombia' : null;
-    await sb.from('ventas').update({ 
-      tipo: 'contado', 
-      metodo_pago: metodo,
-      banco: banco
+  // Buscar el pendiente asociado a la venta
+  const { data: pendiente } = await sb.from('pendientes')
+    .select('*').eq('venta_id', _abonoVentaId).maybeSingle();
+
+  if(pendiente){
+    const nuevoAbonado = (pendiente.monto_abonado || 0) + monto;
+    if(nuevoSaldo === 0){
+      // Ya está pagado completamente: eliminar de pendientes y pasar a contado
+      await sb.from('pendientes').delete().eq('venta_id', _abonoVentaId);
+      await sb.from('ventas').update({
+        tipo: 'contado',
+        metodo_pago: fuente === 'efectivo' ? 'efectivo' : 'transferencia',
+        banco: fuente === 'nequi' ? 'Nequi' : fuente === 'bancolombia' ? 'Bancolombia' : null
+      }).eq('id', _abonoVentaId);
+      showToast(`✅ Venta pagada completamente`, 'success');
+    } else {
+      await sb.from('pendientes')
+        .update({ monto_abonado: nuevoAbonado, pagado: false })
+        .eq('id', pendiente.id);
+      showToast(`✅ Abono de ${formatCOP(monto)} — Saldo restante: ${formatCOP(nuevoSaldo)}`, 'success');
+    }
+  } else if(nuevoSaldo === 0){
+    await sb.from('ventas').update({
+      tipo: 'contado',
+      metodo_pago: fuente === 'efectivo' ? 'efectivo' : 'transferencia',
+      banco: fuente === 'nequi' ? 'Nequi' : fuente === 'bancolombia' ? 'Bancolombia' : null
     }).eq('id', _abonoVentaId);
+    showToast(`✅ Venta pagada completamente`, 'success');
   }
+
   cerrarModalAbonoVenta();
   await cargarVentas();
   await cargarPendientes();
+  await cargarCaja();
 }
 
 /* ============================================================
@@ -4085,7 +4098,7 @@ function renderPendientes(){
 
   lista.innerHTML = PENDIENTES.map(p => {
     const fecha = new Date(p.fecha + 'T00:00:00').toLocaleDateString('es-CO');
-    const fuenteLabel = p.fuente === 'efectivo' ? '💵 Efectivo' : p.fuente === 'nequi' ? 'nequi' : 'Bancolombia';
+    const fuenteLabel = p.fuente ? (p.fuente === 'efectivo' ? '💵 Efectivo' : p.fuente === 'nequi' ? 'nequi' : 'Bancolombia') : '⏳ A crédito';
     return `
       <div class="pendiente-row" id="pend-${p.id}" data-monto="${p.monto}">
         <div class="pendiente-info">
@@ -4130,32 +4143,38 @@ async function guardarPendiente(){
   if(_pendienteEditando){
     const pViejo = PENDIENTES.find(x => x.id === _pendienteEditando);
     const montoViejo = pViejo.monto || 0;
-    const fuenteVieja = (pViejo.fuente || 'efectivo').toLowerCase();
-    const fuenteNueva = fuente.toLowerCase();
+    const fuenteVieja = (pViejo.fuente || '').toLowerCase();
+    const fuenteNueva = (fuente || '').toLowerCase();
 
-    // Revertir el monto viejo
-    const { data: cajaActual } = await sb.from('caja_saldo').select('*').eq('id',1).single();
-    const valorRevertido = (cajaActual[fuenteVieja] || 0) + montoViejo;
-    await sb.from('caja_saldo').update({ [fuenteVieja]: valorRevertido }).eq('id', 1);
-    CAJA[fuenteVieja] = valorRevertido;
+    // Revertir el monto viejo (solo si tenía fuente descontada de caja)
+    if(fuenteVieja){
+      const { data: cajaActual } = await sb.from('caja_saldo').select('*').eq('id',1).single();
+      const valorRevertido = (cajaActual[fuenteVieja] || 0) + montoViejo;
+      await sb.from('caja_saldo').update({ [fuenteVieja]: valorRevertido }).eq('id', 1);
+      CAJA[fuenteVieja] = valorRevertido;
+    }
 
-    // Aplicar el monto nuevo
-    const valorNuevo = (CAJA[fuenteNueva] || 0) - monto;
-    await sb.from('caja_saldo').update({ [fuenteNueva]: valorNuevo }).eq('id', 1);
-    CAJA[fuenteNueva] = valorNuevo;
+    // Aplicar el monto nuevo (solo si tiene fuente)
+    if(fuenteNueva){
+      const valorNuevo = (CAJA[fuenteNueva] || 0) - monto;
+      await sb.from('caja_saldo').update({ [fuenteNueva]: valorNuevo }).eq('id', 1);
+      CAJA[fuenteNueva] = valorNuevo;
+    }
 
     // Borrar movimiento viejo y crear nuevo con monto correcto
     await sb.from('movimientos_caja').delete().eq('descripcion', `Pendiente — ${pViejo.descripcion}`);
-    await sb.from('movimientos_caja').insert({
-      tipo: 'salida',
-      descripcion: `Pendiente — ${desc}`,
-      monto: monto,
-      cuenta: fuenteNueva,
-      fecha: new Date().toISOString().split('T')[0]
-    });
+    if(fuenteNueva){
+      await sb.from('movimientos_caja').insert({
+        tipo: 'salida',
+        descripcion: `Pendiente — ${desc}`,
+        monto: monto,
+        cuenta: fuenteNueva,
+        fecha: new Date().toISOString().split('T')[0]
+      });
+    }
 
     const { error } = await sb.from('pendientes')
-      .update({ descripcion: desc, monto, fuente: fuenteNueva })
+      .update({ descripcion: desc, monto, fuente: fuenteNueva || null })
       .eq('id', _pendienteEditando);
     if(error){ showToast('❌ Error: ' + error.message, 'error'); return; }
 
@@ -4323,9 +4342,9 @@ async function cargarDashboard(mes, anio){
         const contProd = document.getElementById('dash-top-productos');
         if(contProd) contProd.innerHTML = cierre.top_productos.map((p,i) => `
           <div class="top3-card">
-            <div class="top3-medal">${medallas[i]}</div>
             <div class="top3-icon">📦</div>
             <div class="top3-name">${p.nombre}</div>
+            <div class="top3-medal">${medallas[i]}</div>
             <div class="top3-units">${p.cantidad}</div>
             <div class="top3-units-label">Unidades</div>
           </div>
@@ -4446,7 +4465,6 @@ async function cargarTopProductos(mes, anio){
 
   cont.innerHTML = top3.map((p, i) => {
     const prod = PRODUCTOS.find(x => x.id === p.producto_id);
-    const ref = prod?.referencia || '';
     return `
       <div class="top3-card" style="padding:0;overflow:hidden;display:flex;flex-direction:column;">
         <div style="position:relative;">
@@ -4456,9 +4474,8 @@ async function cargarTopProductos(mes, anio){
           }
         </div>
         <div style="padding:8px 10px;text-align:center;">
-          <div class="top3-medal" style="margin-bottom:4px;">${medallas[i]}</div>
           <div class="top3-name" style="font-size:11px;margin-bottom:3px;">${p.nombre}</div>
-          ${ref ? `<span class="top3-ref" style="font-size:9px;">${ref}</span>` : ''}
+          <div class="top3-medal">${medallas[i]}</div>
           <div class="top3-units" style="margin-top:4px;font-size:18px;">${p.cantidad}</div>
           <div class="top3-units-label" style="font-size:9px;">Unidades</div>
         </div>
@@ -4671,8 +4688,8 @@ async function confirmarCierreMes(){
     await sb.from('cierres_mensuales').insert(payload);
   }
 
- // Sumar utilidad al saldo inicial global
-  if(utilidad > 0){
+ // Sumar utilidad al saldo inicial global (solo al crear el cierre nuevo, para no duplicarla)
+  if(!existente){
     const { data: confActual } = await sb.from('configuracion').select('saldo_inicial_global').eq('id', 1).single();
     const nuevoSaldo = (confActual?.saldo_inicial_global || 0) + utilidad;
     await sb.from('configuracion').update({ saldo_inicial_global: nuevoSaldo }).eq('id', 1);
@@ -4686,22 +4703,8 @@ async function confirmarCierreMes(){
   showToast(`✅ Mes de ${MESES_NOMBRE[mes]} cerrado — Utilidad: ${formatCOP(utilidad)}`, 'success');
   cerrarModalCerrarMes();
 
-  // Quitar banner de notificación
-  const banner = document.getElementById('banner-cierre-pendiente');
-  if(banner) banner.remove();
-
-  // Bloquear botón hasta el siguiente mes
-  const btn = document.getElementById('btn-cerrar-mes');
-  const hint = document.getElementById('cerrar-mes-hint');
-  const siguienteMes = mes + 1;
-  const nombreSiguiente = MESES_NOMBRE[siguienteMes > 12 ? 1 : siguienteMes];
-  if(btn){
-    btn.disabled = true;
-    btn.style.opacity = '.5';
-  }
-  if(hint) hint.textContent = `✅ Cerrado — disponible en ${nombreSiguiente}`;
-
   await cargarDashboard();
+  await actualizarBotonCerrarMes();
 }
 
 function editarPendiente(id){
@@ -4718,63 +4721,83 @@ function editarPendiente(id){
 
 async function actualizarBotonCerrarMes(){
   const hoy = new Date();
-const ultimoDia = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate();
+  const ultimoDia = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate();
   const diaActual = hoy.getDate();
-  const mes = MESES_NOMBRE[hoy.getMonth() + 1];
+  const mesActual = hoy.getMonth() + 1;
+  const anioActual = hoy.getFullYear();
+  const mesNombre = MESES_NOMBRE[mesActual];
+  const siguienteMes = mesActual === 12 ? 1 : mesActual + 1;
   const btn = document.getElementById('btn-cerrar-mes');
   const hint = document.getElementById('cerrar-mes-hint');
+  if(!btn) return;
 
-  if(diaActual >= ultimoDia - 2){
+  // Verificar si el mes actual ya fue cerrado
+  const { data: cierre } = await sb.from('cierres_mensuales')
+    .select('id').eq('mes', mesActual).eq('anio', anioActual).maybeSingle();
+  const mesCerrado = !!cierre;
+
+  // Solo a partir del primer mes real (junio 2026)
+  const primerMesReal = 6;
+  const primerAnioReal = 2026;
+  const esDespuesDelPrimerMes = (anioActual > primerAnioReal) ||
+    (anioActual === primerAnioReal && mesActual >= primerMesReal);
+
+  // Se activa solo el último día; si pasa ese día sin cerrar, sigue activo
+  const permitido = esDespuesDelPrimerMes && !mesCerrado && diaActual >= ultimoDia;
+
+  if(permitido){
     btn.disabled = false;
     btn.style.opacity = '1';
-    if(hint) hint.textContent = `¡Hoy es el último día de ${mes}!`;
+    if(hint) hint.textContent = diaActual === ultimoDia
+      ? `¡Hoy es el último día de ${mesNombre}!`
+      : `⚠️ No cerraste ${mesNombre} — ciérralo lo antes posible`;
+  } else if(mesCerrado){
+    btn.disabled = true;
+    btn.style.opacity = '.5';
+    if(hint) hint.textContent = `✅ ${mesNombre} cerrado — disponible el último día de ${MESES_NOMBRE[siguienteMes]}`;
   } else {
     btn.disabled = true;
     btn.style.opacity = '.5';
-   if(hint) hint.textContent = `Disponible el ${ultimoDia} de ${MESES_NOMBRE[hoy.getMonth() + 1]}`;
+    if(hint) hint.textContent = `Disponible el ${ultimoDia} de ${mesNombre}`;
   }
-  // Verificar si el mes anterior no fue cerrado
-  const mesAnterior = hoy.getMonth(); // getMonth() da el mes anterior en base 0
-  const anioAnterior = mesAnterior === 0 ? hoy.getFullYear() - 1 : hoy.getFullYear();
-  const mesAnteriorNum = mesAnterior === 0 ? 12 : mesAnterior;
 
- // Solo verificar desde julio 2026 en adelante (junio es el primer mes real)
-  const primerMesReal = 6// junio 2026
-  const primerAnioReal = 2026;
+  // Alerta roja persistente desde el último día del mes hasta que se cierre
+  let banner = document.getElementById('banner-cierre-pendiente');
+  if(banner) banner.remove();
 
-  const esDespuesDelPrimerMes = (anioAnterior > primerAnioReal) || 
-    (anioAnterior === primerAnioReal && mesAnteriorNum > primerMesReal);
-
-  if(diaActual > 1 && esDespuesDelPrimerMes){
-    const { data: cierre } = await sb.from('cierres_mensuales')
-      .select('id')
-      .eq('mes', mesAnteriorNum)
-      .eq('anio', anioAnterior)
-      .maybeSingle();
-
-    if(!cierre){
-      // Mostrar banner persistente que no se cierra
-      let banner = document.getElementById('banner-cierre-pendiente');
-      if(!banner){
-        banner = document.createElement('div');
-        banner.id = 'banner-cierre-pendiente';
-        banner.style.cssText = `
-          position:fixed;top:0;left:0;right:0;z-index:999;
-          background:var(--rojo);color:#fff;
-          padding:12px 20px;text-align:center;
-          font-family:'Nunito',sans-serif;font-weight:800;font-size:13px;
-          display:flex;align-items:center;justify-content:center;gap:12px;
-        `;
-        banner.innerHTML = `
-          <span>⚠️ No cerraste el mes de ${MESES_NOMBRE[mesAnteriorNum]} ${anioAnterior} — ve a Caja para cerrarlo</span>
-          <button onclick="showView('caja')" style="background:#fff;color:var(--rojo);border:none;border-radius:20px;padding:4px 14px;font-weight:800;font-size:12px;cursor:pointer;font-family:'Nunito',sans-serif;">
-            Ir a Caja
-          </button>
-        `;
-        document.body.prepend(banner);
-      }
-    }
+  if(esDespuesDelPrimerMes && !mesCerrado && diaActual >= ultimoDia){
+    banner = document.createElement('div');
+    banner.id = 'banner-cierre-pendiente';
+    banner.style.cssText = `
+      background:var(--rojo);color:#fff;
+      padding:10px 18px;text-align:center;
+      font-family:'Nunito',sans-serif;font-weight:800;font-size:13px;
+      display:flex;align-items:center;justify-content:center;gap:12px;
+      flex-wrap:wrap;
+      border-radius:14px;
+      margin-bottom:16px;
+      box-shadow:0 4px 14px rgba(229,57,53,.35);
+    `;
+    banner.innerHTML = `
+      <span>⚠️ No has cerrado el mes de ${mesNombre} ${anioActual} — ciérralo para no olvidarte</span>
+      <button onclick="showView('caja')" style="background:#fff;color:var(--rojo);border:none;border-radius:20px;padding:4px 14px;font-weight:800;font-size:12px;cursor:pointer;font-family:'Nunito',sans-serif;">
+        Ir a Caja
+      </button>
+    `;
+    const main = document.querySelector('.main');
+    if(main) main.prepend(banner);
+    else document.body.prepend(banner);
   }
+
+  actualizarVisibilidadBannerCierre();
+}
+
+function actualizarVisibilidadBannerCierre(){
+  const banner = document.getElementById('banner-cierre-pendiente');
+  if(!banner) return;
+  const viewActiva = document.querySelector('.view.active');
+  const enCaja = viewActiva && viewActiva.id === 'view-caja';
+  banner.style.display = enCaja ? 'none' : 'flex';
 }
 /* ============================================================
    ENVÍOS - SEGUIMIENTO

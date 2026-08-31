@@ -487,7 +487,7 @@ html, body { height: 100%; }
 .bar-chart-bar.actual:hover{box-shadow:0 6px 18px rgba(233,30,140,.45);}
 .bar-chart-col{transition:transform .2s;}
 .bar-chart-col:hover{transform:translateY(-4px);}
-.bar-chart-col:hover .bar-chart-value{color:var(--fucsia);transform:scale(1.1);transition:all .2s;}
+.bar-chart-col:hover .bar-chart-value{color:var(--fucsia);transform:translateX(-50%) translateY(-4px) scale(1.1);transition:all .2s;}
 
 .meta-progress-fill:hover{filter:brightness(1.1);transform:scaleY(1.08);}
 .meta-progress-track{transition:box-shadow .2s;}
@@ -503,7 +503,7 @@ html, body { height: 100%; }
 .top3-products{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;align-items:stretch;}
 .top3-card{flex:1;background:#fff;border-radius:14px;border:1.5px solid var(--gris-20);overflow:hidden;display:flex;flex-direction:column;text-align:center;position:relative;transition:transform .2s;}
 .top3-card:hover{transform:translateY(-4px);}
-.top3-medal{position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:30px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.15));}
+.top3-medal{font-size:30px;line-height:1;margin:4px 0;filter:drop-shadow(0 2px 4px rgba(0,0,0,.15));}
 .top3-icon{width:64px;height:64px;border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:30px;margin:8px auto 10px;border:1px solid var(--gris-20);box-shadow:var(--shadow);}
 .top3-name{font-weight:800;font-size:12px;margin-bottom:2px;}
 .top3-ref{font-size:10px;color:var(--gris-60);font-family:monospace;background:var(--gris-20);padding:1px 6px;border-radius:4px;display:inline-block;margin-bottom:8px;}
