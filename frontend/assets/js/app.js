@@ -61,6 +61,10 @@ function ico(name, size){
 function proIcon(icono, size){
   return (icono && icono !== '📦') ? icono : ico('box', size || 16);
 }
+function productoStock(ref){
+  const p = PRODUCTOS.find(x => x.id === ref);
+  return p ? p.stock : 0;
+}
 
 /* ── NAVEGACIÓN ───────────────────────────────────────────── */
 function showView(name){
@@ -324,6 +328,9 @@ function resetFormVenta(){
   document.getElementById('v-descuento-fields').style.display = 'none';
   document.getElementById('v-descuento').value = '';
   document.getElementById('v-descuento-tipo').value = 'monto';
+  document.querySelector('#modal-venta .modal-head h3').innerHTML = `${ico('cart', 14)} Nueva Venta`;
+  const btnV = document.querySelector('#modal-venta .btn-primary');
+  if(btnV) btnV.innerHTML = `${ico('save', 14)} Registrar Venta`;
   _ventaItems = [];
   _itemSeq = 0;
   agregarItemVenta();
@@ -338,6 +345,9 @@ function editarVenta(btn){
 
   _ventaEditando = id;
   document.getElementById('modal-venta').classList.add('open');
+  document.querySelector('#modal-venta .modal-head h3').innerHTML = `${ico('pencil', 14)} Editar Venta`;
+  const btnV = document.querySelector('#modal-venta .btn-primary');
+  if(btnV) btnV.innerHTML = `${ico('save', 14)} Guardar Cambios`;
   document.getElementById('v-cliente').value = v.cliente_nombre || '';
   document.getElementById('v-fecha').value = v.fecha || new Date().toISOString().split('T')[0];
   document.getElementById('v-tipo').value = v.tipo;
@@ -387,21 +397,57 @@ function eliminarItemVenta(id){
 function renderItemsVenta(){
   const cont = document.getElementById('v-items-list');
   cont.innerHTML = _ventaItems.map(it => `
-    <div data-id="${it.id}" style="background:var(--gris-10);border-radius:10px;padding:10px;margin-bottom:8px;">
-      <div class="autocomplete-wrap" style="margin-bottom:6px;">
-        <input class="form-input" placeholder="Buscar producto..." value="${it.nombre}"
-               oninput="buscarProductoItem('${it.id}', this.value)" autocomplete="off">
-        <div class="autocomplete-list" id="ac-${it.id}"></div>
-        ${it.ref ? `<span class="form-hint">${it.foto_url ? `<img src="${it.foto_url}" style="width:20px;height:20px;border-radius:4px;object-fit:cover;vertical-align:middle;">` : it.icon} ${it.nombre} — Stock: ${it.stock}</span>` : ''}
+    <div class="pi-card" data-id="${it.id}">
+      <button type="button" class="pi-remove" title="Quitar producto" onclick="eliminarItemVenta('${it.id}')">✕</button>
+      <div class="pi-head">
+        <div class="autocomplete-wrap">
+          <input class="form-input" placeholder="Buscar producto (nombre o ref)..." value="${it.nombre}"
+                 oninput="buscarProductoItem('${it.id}', this.value)" autocomplete="off">
+          <div class="autocomplete-list" id="ac-${it.id}"></div>
+          ${it.ref ? `<span class="form-hint">${ico('box', 11)} ${it.nombre} — Stock: ${it.stock}</span>` : ''}
+        </div>
+        <div class="pi-thumb">
+          ${it.foto_url
+            ? `<img src="${it.foto_url}" alt="">`
+            : `<div class="pi-thumb-icon">${proIcon(it.icon, 30)}</div>`}
+        </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:end;">
-        <div><div class="form-label">Cant.</div><input class="form-input" type="number" min="1" value="${it.cantidad}" oninput="cambiarCantidadItem('${it.id}', this.value)"></div>
-        <div><div class="form-label">Precio</div><input class="form-input" type="text" value="${it.precio ? it.precio.toLocaleString('es-CO') : ''}" oninput="cambiarPrecioItem('${it.id}', this.value)"></div>
-        <div><div class="form-label">Subtotal</div><input class="form-input" readonly value="${formatCOP(it.precio * it.cantidad)}" style="background:var(--surface-2);color:var(--gris-60);"></div>
-        <button type="button" class="multi-item-remove" onclick="eliminarItemVenta('${it.id}')">✕</button>
+      <div class="pi-grid">
+        <div>
+          <label>Cantidad</label>
+          <div class="stepper">
+            <button type="button" onclick="stepperVenta('${it.id}', -1)">−</button>
+            <input type="number" min="1" value="${it.cantidad ?? 1}" onchange="cambiarCantidadItem('${it.id}', this.value)">
+            <button type="button" onclick="stepperVenta('${it.id}', 1)">+</button>
+          </div>
+        </div>
+        <div>
+          <label>Precio</label>
+          <input class="form-input" type="text" value="${it.precio ? it.precio.toLocaleString('es-CO') : ''}" placeholder="0" oninput="cambiarPrecioItem('${it.id}', this.value)">
+        </div>
+        <div>
+          <label>Subtotal</label>
+          <div class="pi-sub" id="sub-${it.id}">${formatCOP(it.precio * it.cantidad)}</div>
+        </div>
       </div>
     </div>
   `).join('');
+  calcTotalGeneral();
+}
+
+function stepperVenta(id, delta){
+  const item = _ventaItems.find(it => it.id === id);
+  if(!item) return;
+  const nueva = Math.max(1, (item.cantidad || 1) + delta);
+  if(item.ref && nueva > item.stock){
+    showToast(`⚠️ Solo hay ${item.stock} disponibles de "${item.nombre}"`, 'error');
+    return;
+  }
+  item.cantidad = nueva;
+  const input = document.querySelector(`#v-items-list [data-id="${id}"] .stepper input`);
+  if(input) input.value = nueva;
+  const subEl = document.getElementById('sub-' + id);
+  if(subEl) subEl.textContent = formatCOP(item.precio * nueva);
   calcTotalGeneral();
 }
 
@@ -455,15 +501,15 @@ function cambiarCantidadItem(id, valor){
     return;
   }
   item.cantidad = cantidad;
-  const row = document.querySelector(`#v-items-list [data-id="${id}"]`);
-  row.querySelector('input[readonly]').value = formatCOP(item.precio * item.cantidad);
+  const subEl = document.getElementById('sub-' + id);
+  if(subEl) subEl.textContent = formatCOP(item.precio * item.cantidad);
   calcTotalGeneral();
 }
 function cambiarPrecioItem(id, valor){
   const item = _ventaItems.find(it => it.id === id);
   item.precio = rawNum({value: valor});
-  const row = document.querySelector(`#v-items-list [data-id="${id}"]`);
-  row.querySelector('input[readonly]').value = formatCOP(item.precio * item.cantidad);
+  const subEl = document.getElementById('sub-' + id);
+  if(subEl) subEl.textContent = formatCOP(item.precio * item.cantidad);
   calcTotalGeneral();
 }
 
@@ -583,6 +629,9 @@ function resetFormCompra(){
   document.getElementById('co-descuento-fields').style.display = 'none';
   document.getElementById('co-descuento').value = '';
   document.getElementById('co-descuento-tipo').value = 'monto';
+  document.querySelector('#modal-compra .modal-head h3').innerHTML = `${ico('cart', 14)} Nueva Compra`;
+  const btnC = document.querySelector('#modal-compra .btn-primary');
+  if(btnC) btnC.innerHTML = `${ico('save', 14)} Registrar Compra`;
   _compraItems = [];
   _compraItemSeq = 0;
   agregarItemCompra();
@@ -597,6 +646,9 @@ function editarCompra(btn){
 
   _compraEditando = id;
   document.getElementById('modal-compra').classList.add('open');
+  document.querySelector('#modal-compra .modal-head h3').innerHTML = `${ico('pencil', 14)} Editar Compra`;
+  const btnC = document.querySelector('#modal-compra .btn-primary');
+  if(btnC) btnC.innerHTML = `${ico('save', 14)} Guardar Cambios`;
   document.getElementById('co-proveedor').value = c.proveedor_nombre || '';
   document.getElementById('co-tipo').value = c.tipo;
   document.getElementById('co-fecha').value = c.fecha || new Date().toISOString().split('T')[0];
@@ -643,21 +695,52 @@ function eliminarItemCompra(id){
 function renderItemsCompra(){
   const cont = document.getElementById('co-items-list');
   cont.innerHTML = _compraItems.map(it => `
-    <div data-id="${it.id}" style="background:var(--gris-10);border-radius:10px;padding:10px;margin-bottom:8px;">
-      <div class="autocomplete-wrap" style="margin-bottom:6px;">
-        <input class="form-input" placeholder="Buscar producto..." value="${it.nombre}"
-               oninput="buscarProductoCompra('${it.id}', this.value)" autocomplete="off">
-        <div class="autocomplete-list" id="co-ac-${it.id}"></div>
-        ${it.ref ? `<span class="form-hint">${it.foto_url ? `<img src="${it.foto_url}" style="width:20px;height:20px;border-radius:4px;object-fit:cover;vertical-align:middle;">` : it.icon} ${it.nombre}</span>` : ''}
+    <div class="pi-card" data-id="${it.id}">
+      <button type="button" class="pi-remove" title="Quitar producto" onclick="eliminarItemCompra('${it.id}')">✕</button>
+      <div class="pi-head">
+        <div class="autocomplete-wrap">
+          <input class="form-input" placeholder="Buscar producto (nombre o ref)..." value="${it.nombre}"
+                 oninput="buscarProductoCompra('${it.id}', this.value)" autocomplete="off">
+          <div class="autocomplete-list" id="co-ac-${it.id}"></div>
+          ${it.ref ? `<span class="form-hint">${ico('box', 11)} ${it.nombre} — Stock: ${productoStock(it.ref)}</span>` : ''}
+        </div>
+        <div class="pi-thumb">
+          ${it.foto_url
+            ? `<img src="${it.foto_url}" alt="">`
+            : `<div class="pi-thumb-icon">${proIcon(it.icon, 30)}</div>`}
+        </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:end;">
-        <div><div class="form-label">Cant.</div><input class="form-input" type="number" min="1" value="${it.cantidad}" oninput="cambiarCantidadCompra('${it.id}', this.value)"></div>
-        <div><div class="form-label">Costo</div><input class="form-input" type="text" value="${it.costo ? it.costo.toLocaleString('es-CO') : ''}" placeholder="0" oninput="cambiarCostoCompra('${it.id}', this.value)"></div>
-        <div><div class="form-label">Subtotal</div><input class="form-input" readonly value="${formatCOP(it.costo * it.cantidad)}" style="background:var(--surface-2);color:var(--gris-60);"></div>
-        <button type="button" class="multi-item-remove" onclick="eliminarItemCompra('${it.id}')">✕</button>
+      <div class="pi-grid">
+        <div>
+          <label>Cantidad</label>
+          <div class="stepper">
+            <button type="button" onclick="stepperCompra('${it.id}', -1)">−</button>
+            <input type="number" min="1" value="${it.cantidad ?? 1}" onchange="cambiarCantidadCompra('${it.id}', this.value)">
+            <button type="button" onclick="stepperCompra('${it.id}', 1)">+</button>
+          </div>
+        </div>
+        <div>
+          <label>Costo</label>
+          <input class="form-input" type="text" value="${it.costo ? it.costo.toLocaleString('es-CO') : ''}" placeholder="0" oninput="cambiarCostoCompra('${it.id}', this.value)">
+        </div>
+        <div>
+          <label>Subtotal</label>
+          <div class="pi-sub" id="co-sub-${it.id}">${formatCOP(it.costo * it.cantidad)}</div>
+        </div>
       </div>
     </div>
   `).join('');
+  calcTotalCompra();
+}
+
+function stepperCompra(id, delta){
+  const item = _compraItems.find(it => it.id === id);
+  if(!item) return;
+  item.cantidad = Math.max(1, (item.cantidad || 1) + delta);
+  const input = document.querySelector(`#co-items-list [data-id="${id}"] .stepper input`);
+  if(input) input.value = item.cantidad;
+  const subEl = document.getElementById('co-sub-' + id);
+  if(subEl) subEl.textContent = formatCOP(item.costo * item.cantidad);
   calcTotalCompra();
 }
 
@@ -705,8 +788,8 @@ function seleccionarProductoCompra(id, productoId){
 function cambiarCantidadCompra(id, valor){
   const item = _compraItems.find(it => it.id === id);
   item.cantidad = Math.max(1, parseInt(valor) || 1);
-  const row = document.querySelector(`#co-items-list [data-id="${id}"]`);
-  row.querySelectorAll('input[readonly]')[0].value = formatCOP(item.costo * item.cantidad);
+  const subEl = document.getElementById('co-sub-' + id);
+  if(subEl) subEl.textContent = formatCOP(item.costo * item.cantidad);
   calcTotalCompra();
 }
 
@@ -715,8 +798,8 @@ function cambiarCostoCompra(id, valor){
   const item = _compraItems.find(it => it.id === id);
   item.costo = rawNum({value: valor});
   item.costoEditado = true;
-  const row = document.querySelector(`#co-items-list [data-id="${id}"]`);
-  row.querySelectorAll('input[readonly]')[0].value = formatCOP(item.costo * item.cantidad);
+  const subEl = document.getElementById('co-sub-' + id);
+  if(subEl) subEl.textContent = formatCOP(item.costo * item.cantidad);
   calcTotalCompra();
 }
 
@@ -1328,25 +1411,51 @@ function eliminarItemCotiz(id){
 function renderItemsCotiz(){
   const cont = document.getElementById('cot-items-list');
   cont.innerHTML = _cotizItems.map(it => `
-    <div data-id="${it.id}" style="background:var(--gris-10);border-radius:10px;padding:10px;margin-bottom:8px;">
-      <div class="autocomplete-wrap" style="margin-bottom:6px;">
-        <label class="form-label" style="margin-bottom:3px;">Producto</label>
-        <input class="form-input" placeholder="Buscar nombre o ref..." value="${it.nombre}"
-               oninput="buscarProductoCotiz('${it.id}', this.value)" autocomplete="off">
-        <div class="autocomplete-list" id="cot-ac-${it.id}"></div>
-        ${it.ref ? `<span class="form-hint" style="display:flex;align-items:center;gap:6px;margin-top:3px;">
-          ${it.foto_url ? `<img src="${it.foto_url}" style="width:20px;height:20px;border-radius:4px;object-fit:cover;">` : it.icon}
-          ${it.nombre}
-        </span>` : ''}
+    <div class="pi-card" data-id="${it.id}">
+      <button type="button" class="pi-remove" title="Quitar producto" onclick="eliminarItemCotiz('${it.id}')">✕</button>
+      <div class="pi-head">
+        <div class="autocomplete-wrap">
+          <input class="form-input" placeholder="Buscar producto (nombre o ref)..." value="${it.nombre}"
+                 oninput="buscarProductoCotiz('${it.id}', this.value)" autocomplete="off">
+          <div class="autocomplete-list" id="cot-ac-${it.id}"></div>
+          ${it.ref ? `<span class="form-hint">${ico('box', 11)} ${it.nombre} — Stock: ${productoStock(it.ref)}</span>` : ''}
+        </div>
+        <div class="pi-thumb">
+          ${it.foto_url
+            ? `<img src="${it.foto_url}" alt="">`
+            : `<div class="pi-thumb-icon">${proIcon(it.icon, 30)}</div>`}
+        </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:end;">
-        <div><div class="form-label">Cant.</div><input class="form-input" type="number" min="1" value="${it.cantidad}" oninput="cambiarCantidadCotiz('${it.id}', this.value)"></div>
-        <div><div class="form-label">Costo</div><input class="form-input" type="text" value="${it.costo ? it.costo.toLocaleString('es-CO') : ''}" placeholder="0" oninput="cambiarCostoCotiz('${it.id}', this.value)"></div>
-        <div><div class="form-label">Subtotal</div><input class="form-input" readonly value="${formatCOP(it.costo * it.cantidad)}" style="background:var(--surface-2);color:var(--gris-60);"></div>
-        <button type="button" class="multi-item-remove" onclick="eliminarItemCotiz('${it.id}')">✕</button>
+      <div class="pi-grid">
+        <div>
+          <label>Cantidad</label>
+          <div class="stepper">
+            <button type="button" onclick="stepperCotiz('${it.id}', -1)">−</button>
+            <input type="number" min="1" value="${it.cantidad ?? 1}" onchange="cambiarCantidadCotiz('${it.id}', this.value)">
+            <button type="button" onclick="stepperCotiz('${it.id}', 1)">+</button>
+          </div>
+        </div>
+        <div>
+          <label>Costo</label>
+          <input class="form-input" type="text" value="${it.costo ? it.costo.toLocaleString('es-CO') : ''}" placeholder="0" oninput="cambiarCostoCotiz('${it.id}', this.value)">
+        </div>
+        <div>
+          <label>Subtotal</label>
+          <div class="pi-sub" id="cot-sub-${it.id}">${formatCOP(it.costo * it.cantidad)}</div>
+        </div>
       </div>
     </div>
   `).join('');
+  calcTotalCotiz();
+}
+function stepperCotiz(id, delta){
+  const item = _cotizItems.find(it => it.id === id);
+  if(!item) return;
+  item.cantidad = Math.max(1, (item.cantidad || 1) + delta);
+  const input = document.querySelector(`#cot-items-list [data-id="${id}"] .stepper input`);
+  if(input) input.value = item.cantidad;
+  const subEl = document.getElementById('cot-sub-' + id);
+  if(subEl) subEl.textContent = formatCOP(item.costo * item.cantidad);
   calcTotalCotiz();
 }
 function buscarProductoCotiz(id, query){
@@ -1384,15 +1493,15 @@ function seleccionarProductoCotiz(id, productoId){
 function cambiarCantidadCotiz(id, valor){
   const item = _cotizItems.find(it => it.id === id);
   item.cantidad = Math.max(1, parseInt(valor) || 1);
- const row = document.querySelector(`#cot-items-list [data-id="${id}"]`);
-  row.querySelectorAll('input[readonly]')[0].value = formatCOP(item.costo * item.cantidad);
+  const subEl = document.getElementById('cot-sub-' + id);
+  if(subEl) subEl.textContent = formatCOP(item.costo * item.cantidad);
   calcTotalCotiz();
 }
 function cambiarCostoCotiz(id, valor){
   const item = _cotizItems.find(it => it.id === id);
   item.costo = rawNum({value: valor});
-  const row = document.querySelector(`#cot-items-list [data-id="${id}"]`);
-  row.querySelectorAll('input[readonly]')[0].value = formatCOP(item.costo * item.cantidad);
+  const subEl = document.getElementById('cot-sub-' + id);
+  if(subEl) subEl.textContent = formatCOP(item.costo * item.cantidad);
   calcTotalCotiz();
 }
 function calcTotalCotiz(){
@@ -1636,8 +1745,8 @@ function resaltarMesGrafico(){
 
 async function abrirModalCerrarMes(){
   const hoy = new Date();
-  const mes = hoy.getMonth() + 1;
-  const anio = hoy.getFullYear();
+  const mes = _mesCierre?.mes || hoy.getMonth() + 1;
+  const anio = _mesCierre?.anio || hoy.getFullYear();
 
   const [ventasRes, comprasRes, gastosRes] = await Promise.all([
     sb.from('ventas').select('total').eq('mes', mes).eq('anio', anio),
@@ -1689,30 +1798,39 @@ function guardarSaldoInicial(){
 
 let _efectivoEsperado = 0;// demo: vendría de saldo_inicial + ventas - gastos - compras (efectivo)
 
+/** Pintado estilizado del cuadre: ¡CAJA CUADRADA! / ¡Sobran! / ¡Faltan! */
+function renderCuadre(estado, diferencia){
+  const el = document.querySelector('.cuadre-alert');
+  if(!el) return;
+  const icon = el.querySelector('.cuadre-icon');
+  const title = el.querySelector('.cuadre-title');
+  const sub = el.querySelector('.cuadre-sub');
+
+  el.classList.remove('sobra','falta');
+
+  if(estado === 'cuadra'){
+    icon.innerHTML = ico('check', 34);
+    title.textContent = '¡CAJA CUADRADA!';
+    sub.textContent = 'El arqueo coincide con lo esperado';
+  } else if(estado === 'sobra'){
+    el.classList.add('sobra');
+    icon.innerHTML = ico('alert', 34);
+    title.textContent = `¡Sobran ${formatCOP(diferencia)}!`;
+    sub.textContent = 'Tienes más dinero del esperado';
+  } else {
+    el.classList.add('falta');
+    icon.innerHTML = ico('x', 34);
+    title.textContent = `¡Faltan ${formatCOP(Math.abs(diferencia))}!`;
+    sub.textContent = 'Tienes menos dinero del esperado';
+  }
+}
+
 function recalcCuadreCaja(){
   const totalContado = parseInt(document.getElementById('total-efectivo').textContent.replace(/[^\d]/g,'')) || 0;
   const diferencia = totalContado - _efectivoEsperado;
-
-  const alert = document.querySelector('.cuadre-alert');
-  const icon = alert.querySelector('.cuadre-icon');
-  const title = alert.querySelector('.cuadre-title');
-  const sub = alert.querySelector('.cuadre-sub');
-
-  alert.classList.remove('sobra','falta');
-  sub.textContent = '';
-
-  if(Math.abs(diferencia) === 0){
-    icon.innerHTML = ico('check', 18);
-    title.textContent = '¡CAJA CUADRADA!';
-  } else if(diferencia > 0){
-    alert.classList.add('sobra');
-    icon.innerHTML = ico('alert', 18);
-    title.textContent = `Sobran ${formatCOP(diferencia)}`;
-  } else {
-    alert.classList.add('falta');
-    icon.innerHTML = ico('x', 18);
-    title.textContent = `Faltan ${formatCOP(Math.abs(diferencia))}`;
-  }
+  if(Math.abs(diferencia) === 0) renderCuadre('cuadra', 0);
+  else if(diferencia > 0) renderCuadre('sobra', diferencia);
+  else renderCuadre('falta', diferencia);
 }
 /* ============================================================
    INVENTARIO - CONEXIÓN SUPABASE
@@ -2808,6 +2926,38 @@ async function guardarVenta(){
   };
 
   if(_ventaEditando){
+    const ventaVieja = VENTAS.find(v => v.id === _ventaEditando);
+    const itemsViejos = ventaVieja?.venta_items || [];
+
+    // Cantidad anterior por producto (se devuelve al stock al editar)
+    const cantVieja = {};
+    itemsViejos.forEach(it => { cantVieja[it.producto_id] = (cantVieja[it.producto_id] || 0) + it.cantidad; });
+
+    // Validar contra stock real + lo que se devuelve de la venta anterior
+    for(const it of itemsValidos){
+      if(it.ref){
+        const prod = PRODUCTOS.find(p => p.id === it.ref);
+        if(!prod) continue;
+        const disponible = prod.stock + (cantVieja[it.ref] || 0);
+        if(it.cantidad > disponible){
+          showToast(`⚠️ Stock insuficiente de "${it.nombre}" (disponible: ${disponible})`, 'error');
+          return;
+        }
+      }
+    }
+
+    // 1) Devolver al stock los items de la venta anterior
+    for(const it of itemsViejos){
+      if(it.producto_id){
+        const prod = PRODUCTOS.find(p => p.id === it.producto_id);
+        if(prod){
+          const nuevoStock = prod.stock + it.cantidad;
+          await sb.from('productos').update({ stock: nuevoStock }).eq('id', it.producto_id);
+          prod.stock = nuevoStock;
+        }
+      }
+    }
+
     const { error: errUpd } = await sb.from('ventas').update(ventaPayload).eq('id', _ventaEditando);
     if(errUpd){ showToast('❌ Error: ' + errUpd.message, 'error'); return; }
 
@@ -2823,6 +2973,19 @@ async function guardarVenta(){
       subtotal: it.precio * it.cantidad
     }));
     await sb.from('venta_items').insert(items);
+
+    // 2) Descontar del stock los items nuevos
+    for(const it of itemsValidos){
+      if(it.ref){
+        const prod = PRODUCTOS.find(p => p.id === it.ref);
+        if(prod){
+          const nuevoStock = prod.stock - it.cantidad;
+          await sb.from('productos').update({ stock: nuevoStock }).eq('id', it.ref);
+          prod.stock = nuevoStock;
+        }
+      }
+    }
+
     showToast(`✅ Venta actualizada: ${formatCOP(total)}`);
 
   } else {
@@ -3191,6 +3354,21 @@ async function guardarCompra(){
   };
 
   if(_compraEditando){
+    const compraVieja = COMPRAS.find(c => c.id === _compraEditando);
+    const itemsViejos = compraVieja?.compra_items || [];
+
+    // 1) Descontar del stock lo que sumó la compra anterior
+    for(const it of itemsViejos){
+      if(it.producto_id){
+        const prod = PRODUCTOS.find(p => p.id === it.producto_id);
+        if(prod){
+          const nuevoStock = Math.max(0, prod.stock - it.cantidad);
+          await sb.from('productos').update({ stock: nuevoStock }).eq('id', it.producto_id);
+          prod.stock = nuevoStock;
+        }
+      }
+    }
+
     const { error: errUpd } = await sb.from('compras').update(compraPayload).eq('id', _compraEditando);
     if(errUpd){ showToast('❌ Error: ' + errUpd.message, 'error'); return; }
 
@@ -3206,6 +3384,19 @@ async function guardarCompra(){
       subtotal: it.costo * it.cantidad
     }));
     await sb.from('compra_items').insert(items);
+
+    // 2) Sumar al stock los items nuevos
+    for(const it of itemsValidos){
+      if(it.ref){
+        const prod = PRODUCTOS.find(p => p.id === it.ref);
+        if(prod){
+          const nuevoStock = prod.stock + it.cantidad;
+          await sb.from('productos').update({ stock: nuevoStock }).eq('id', it.ref);
+          prod.stock = nuevoStock;
+        }
+      }
+    }
+
     showToast(`✅ Compra actualizada: ${formatCOP(total)}`);
 
   } else {
@@ -4761,8 +4952,9 @@ function renderPendientes(){
   lista.innerHTML = PENDIENTES.map(p => {
     const fecha = new Date(p.fecha + 'T00:00:00').toLocaleDateString('es-CO');
     const fuenteLabel = p.fuente ? (p.fuente === 'efectivo' ? `${ico('cash', 11)} Efectivo` : p.fuente === 'nequi' ? 'nequi' : 'Bancolombia') : `${ico('clock', 11)} A crédito`;
+    const resaltado = typeof p.resaltado === 'boolean' ? p.resaltado : resaltados.has(p.id);
     return `
-      <div class="pendiente-row${resaltados.has(p.id) ? ' resaltado' : ''}" id="pend-${p.id}" data-monto="${p.monto}" ondblclick="toggleResaltarPendiente('${p.id}')">
+      <div class="pendiente-row${resaltado ? ' resaltado' : ''}" id="pend-${p.id}" data-monto="${p.monto}" ondblclick="toggleResaltarPendiente('${p.id}')">
         <div class="pendiente-info">
           <strong>${p.descripcion}</strong>
           <span class="pendiente-tipo">${fuenteLabel} · ${fecha}</span>
@@ -4787,24 +4979,47 @@ function renderPendientes(){
   recalcPendientesTotal();
 }
 
-/* Resaltado de pendientes (doble clic): marca cuáles deben pagarse este mes */
+/* Resaltado de pendientes (doble clic): marca cuáles deben pagarse este mes.
+   Se guarda en Supabase (columna resaltado) para que persista en todos los
+   dispositivos. Si la columna aún no existe, se usa localStorage como respaldo. */
 function getPendientesResaltados(){
   try{ return new Set(JSON.parse(localStorage.getItem('pendientes_resaltados') || '[]')); }
   catch(e){ return new Set(); }
 }
-function guardarPendientesResaltados(set){
-  localStorage.setItem('pendientes_resaltados', JSON.stringify([...set]));
-}
-function toggleResaltarPendiente(id){
+async function guardarPendienteResaltado(id, resaltado){
+  const { error } = await sb.from('pendientes').update({ resaltado }).eq('id', id);
+  if(!error){
+    const set = getPendientesResaltados();
+    if(resaltado) set.add(id); else set.delete(id);
+    localStorage.setItem('pendientes_resaltados', JSON.stringify([...set]));
+    return true;
+  }
+  // Columna no disponible: seguir usando localStorage (solo este dispositivo)
   const set = getPendientesResaltados();
-  if(set.has(id)){ set.delete(id); } else { set.add(id); }
-  guardarPendientesResaltados(set);
+  if(resaltado) set.add(id); else set.delete(id);
+  localStorage.setItem('pendientes_resaltados', JSON.stringify([...set]));
+  return false;
+}
+async function toggleResaltarPendiente(id){
   const row = document.getElementById('pend-' + id);
-  if(row) row.classList.toggle('resaltado', set.has(id));
+  if(!row) return;
+  const set = getPendientesResaltados();
+  const resaltado = !(typeof PENDIENTES.find(p=>p.id===id)?.resaltado === 'boolean'
+    ? PENDIENTES.find(p=>p.id===id).resaltado
+    : set.has(id));
+  // Actualizar UI de forma optimista
+  setToggleUI(row, resaltado);
+  const ok = await guardarPendienteResaltado(id, resaltado);
+  const p = PENDIENTES.find(x=>x.id===id);
+  if(p) p.resaltado = ok ? resaltado : undefined;
+}
+function setToggleUI(row, resaltado){
+  row.classList.toggle('resaltado', resaltado);
 }
 function quitarPendienteResaltado(id){
   const set = getPendientesResaltados();
-  if(set.delete(id)) guardarPendientesResaltados(set);
+  if(set.delete(id)) localStorage.setItem('pendientes_resaltados', JSON.stringify([...set]));
+  sb.from('pendientes').update({ resaltado: false }).eq('id', id).then(()=>{});
 }
 
 async function guardarPendiente(){
@@ -5302,8 +5517,8 @@ function cambiarMesDashboard(valor){
 
 async function confirmarCierreMes(){
   const hoy = new Date();
-  const mes = hoy.getMonth() + 1;
-  const anio = hoy.getFullYear();
+  const mes = _mesCierre?.mes || hoy.getMonth() + 1;
+  const anio = _mesCierre?.anio || hoy.getFullYear();
 
   const [ventasRes, comprasRes, gastosRes, venta_itemsRes] = await Promise.all([
     sb.from('ventas').select('total, cliente_nombre, venta_items(producto_id, producto_nombre, cantidad)').eq('mes', mes).eq('anio', anio),
@@ -5403,53 +5618,62 @@ function editarPendiente(id){
   document.querySelector('#modal-pendiente .btn-primary').innerHTML = ico('save', 13) + ' Guardar Cambios';
 }
 
-async function actualizarBotonCerrarMes(){
+const PRIMER_MES_CIERRE = 6;   // junio
+const PRIMER_ANIO_CIERRE = 2026;
+
+let _mesCierre = null; // { mes, anio, ultimoDia, esHoy } del mes pendiente por cerrar
+
+/** Encuentra el mes más reciente cuyo último día ya llegó y aún no se cierra.
+    Así la alerta NO desaparece en el mes siguiente y sigue saliendo hasta cerrar. */
+async function calcularMesPendienteCierre(){
   const hoy = new Date();
-  const ultimoDia = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate();
-  const diaActual = hoy.getDate();
-  const mesActual = hoy.getMonth() + 1;
-  const anioActual = hoy.getFullYear();
-  const mesNombre = MESES_NOMBRE[mesActual];
-  const siguienteMes = mesActual === 12 ? 1 : mesActual + 1;
+  for(let i = 0; i < 6; i++){
+    // Día 0 = último día del mes (hoy.getMonth() - i)
+    const ult = new Date(hoy.getFullYear(), hoy.getMonth() - i + 1, 0);
+    const mes = ult.getMonth() + 1;
+    const anio = ult.getFullYear();
+    const ultimoDia = ult.getDate();
+
+    const primerReal = anio > PRIMER_ANIO_CIERRE ||
+      (anio === PRIMER_ANIO_CIERRE && mes >= PRIMER_MES_CIERRE);
+    if(!primerReal) return null;
+
+    const fechaHoy = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+    if(ult <= fechaHoy){
+      const { data: cierre } = await sb.from('cierres_mensuales')
+        .select('id').eq('mes', mes).eq('anio', anio).maybeSingle();
+      if(!cierre) return { mes, anio, ultimoDia, esHoy: ult.getTime() === fechaHoy.getTime() };
+    }
+  }
+  return null;
+}
+
+async function actualizarBotonCerrarMes(){
   const btn = document.getElementById('btn-cerrar-mes');
   const hint = document.getElementById('cerrar-mes-hint');
   if(!btn) return;
 
-  // Verificar si el mes actual ya fue cerrado
-  const { data: cierre } = await sb.from('cierres_mensuales')
-    .select('id').eq('mes', mesActual).eq('anio', anioActual).maybeSingle();
-  const mesCerrado = !!cierre;
+  const hoy = new Date();
+  const mesActual = hoy.getMonth() + 1;
+  const anioActual = hoy.getFullYear();
 
-  // Solo a partir del primer mes real (junio 2026)
-  const primerMesReal = 6;
-  const primerAnioReal = 2026;
-  const esDespuesDelPrimerMes = (anioActual > primerAnioReal) ||
-    (anioActual === primerAnioReal && mesActual >= primerMesReal);
+  _mesCierre = await calcularMesPendienteCierre();
 
-  // Se activa solo el último día; si pasa ese día sin cerrar, sigue activo
-  const permitido = esDespuesDelPrimerMes && !mesCerrado && diaActual >= ultimoDia;
-
-  if(permitido){
-    btn.disabled = false;
-    btn.style.opacity = '1';
-    if(hint) hint.textContent = diaActual === ultimoDia
-      ? `¡Hoy es el último día de ${mesNombre}!`
-      : `${ico('alert', 12)} No cerraste ${mesNombre} — ciérralo lo antes posible`;
-  } else if(mesCerrado){
-    btn.disabled = true;
-    btn.style.opacity = '.5';
-    if(hint) hint.innerHTML = `${ico('check', 12)} ${mesNombre} cerrado — disponible el último día de ${MESES_NOMBRE[siguienteMes]}`;
-  } else {
-    btn.disabled = true;
-    btn.style.opacity = '.5';
-    if(hint) hint.textContent = `Disponible el ${ultimoDia} de ${mesNombre}`;
-  }
-
-  // Alerta roja persistente desde el último día del mes hasta que se cierre
+  // Remover banner anterior para reconstruirlo con el estado vigente
   let banner = document.getElementById('banner-cierre-pendiente');
   if(banner) banner.remove();
 
-  if(esDespuesDelPrimerMes && !mesCerrado && diaActual >= ultimoDia){
+  if(_mesCierre){
+    const { mes, anio, esHoy } = _mesCierre;
+    const mesNombre = MESES_NOMBRE[mes];
+    btn.disabled = false;
+    btn.style.opacity = '';
+    if(hint){
+      hint.innerHTML = esHoy
+        ? `¡Hoy es el último día de ${mesNombre}!`
+        : `${ico('alert', 12)} No cerraste ${mesNombre} ${anio} — ciérralo lo antes posible`;
+    }
+
     banner = document.createElement('div');
     banner.id = 'banner-cierre-pendiente';
     banner.style.cssText = `
@@ -5463,7 +5687,7 @@ async function actualizarBotonCerrarMes(){
       box-shadow:0 4px 14px rgba(229,57,53,.35);
     `;
     banner.innerHTML = `
-      <span>${ico('alert', 12)} No has cerrado el mes de ${mesNombre} ${anioActual} — ciérralo para no olvidarte</span>
+      <span>${ico('alert', 12)} No has cerrado el mes de ${mesNombre} ${anio} — ciérralo para guardar los datos</span>
       <button onclick="showView('caja')" style="background:#fff;color:var(--rojo);border:none;border-radius:20px;padding:4px 14px;font-weight:800;font-size:12px;cursor:pointer;font-family:'Nunito',sans-serif;">
         Ir a Caja
       </button>
@@ -5471,6 +5695,19 @@ async function actualizarBotonCerrarMes(){
     const main = document.querySelector('.main');
     if(main) main.prepend(banner);
     else document.body.prepend(banner);
+  } else {
+    // Nada pendiente: el botón queda apagado con el indicador del mes actual
+    const { data: cierre } = await sb.from('cierres_mensuales')
+      .select('id').eq('mes', mesActual).eq('anio', anioActual).maybeSingle();
+    btn.disabled = true;
+    btn.style.opacity = '';
+    const ultDia = new Date(anioActual, mesActual, 0).getDate();
+    const siguienteMes = mesActual === 12 ? 1 : mesActual + 1;
+    if(cierre){
+      if(hint) hint.innerHTML = `${ico('check', 12)} ${MESES_NOMBRE[mesActual]} cerrado — disponible el último día de ${MESES_NOMBRE[siguienteMes]}`;
+    } else {
+      if(hint) hint.textContent = `Disponible el ${ultDia} de ${MESES_NOMBRE[mesActual]}`;
+    }
   }
 
   actualizarVisibilidadBannerCierre();
@@ -5763,29 +6000,9 @@ async function actualizarCuadreGlobal(){
   const tienesAhora = (CAJA?.efectivo||0) + (CAJA?.nequi||0) + (CAJA?.bancolombia||0);
   const diferencia = tienesAhora - deberiasTener;
 
-  const el = document.querySelector('.cuadre-alert');
-  const icon = el?.querySelector('.cuadre-icon');
-  const title = el?.querySelector('.cuadre-title');
-  const sub = el?.querySelector('.cuadre-sub');
-  if(!el) return;
-
-  el.classList.remove('sobra','falta');
-
-if(Math.abs(diferencia) === 0){
-    icon.innerHTML = ico('check', 18);
-    title.textContent = '¡CAJA CUADRADA!';
-    sub.textContent = '';
-  } else if(diferencia > 0){
-    el.classList.add('sobra');
-    icon.innerHTML = ico('alert', 18);
-    title.textContent = `Sobran ${formatCOP(diferencia)}`;
-    sub.textContent = '';
-  } else {
-    el.classList.add('falta');
-    icon.innerHTML = ico('x', 18);
-    title.textContent = `Faltan ${formatCOP(Math.abs(diferencia))}`;
-    sub.textContent = '';
-  }
+  if(Math.abs(diferencia) === 0) renderCuadre('cuadra', 0);
+  else if(diferencia > 0) renderCuadre('sobra', diferencia);
+  else renderCuadre('falta', diferencia);
 }
 
 function cambioTipoCompra(){
