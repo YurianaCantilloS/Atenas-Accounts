@@ -51,6 +51,27 @@ const ICONOS = {
   x:      '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'
 };
 
+/* ── SERVICIO DE CARGA DE IMÁGENES (Cloudinary) ───────────── */
+async function subirACloudinary(archivo) {
+  if (!archivo) return null;
+  const formData = new FormData();
+  formData.append('file', archivo);
+  formData.append('upload_preset', 'preset_productos'); // Asegúrate que este sea el nombre de tu preset en Cloudinary
+
+  try {
+    const respuesta = await fetch('https://api.cloudinary.com/v1_1/wf9vrurd/image/upload', {
+      method: 'POST',
+      body: formData
+    });
+    if (!respuesta.ok) throw new Error('Error al subir la imagen');
+    const datos = await respuesta.json();
+    return datos.secure_url;
+  } catch (error) {
+    console.error('Cloudinary Error:', error);
+    showToast('⚠️ Error al subir la imagen a Cloudinary', 'error');
+    return null;
+  }
+}
 function ico(name, size){
   const w = size || 14;
   const body = ICONOS[name] || ICONOS.box;
@@ -2243,7 +2264,8 @@ async function guardarProducto(){
 
   let fotoUrl = null;
   if(_fotoFile){
-    fotoUrl = await subirFoto(referencia);
+    showToast('Subiendo imagen...', 'info');
+    fotoUrl = await subirACloudinary(_fotoFile); // ← CAMBIO AQUÍ: Ahora sube a Cloudinary
   }
 
   const payload = { referencia, nombre, costo, precio, stock };
@@ -2262,7 +2284,6 @@ async function guardarProducto(){
   cerrarModalProducto();
   await cargarProductos();
 }
-
 /** Eliminar producto */
 function eliminarProducto(id){
   confirmarAccion('¿Eliminar este producto? Esta acción no se puede deshacer.', async () => {
