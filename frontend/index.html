@@ -330,9 +330,15 @@
         </div>
       </div>
 
-      <div class="toolbar">
-        <div class="toolbar-left">
+      <div class="toolbar inv-toolbar">
+        <div class="inv-toolbar-top">
           <input class="search-input" placeholder="Buscar por nombre o ref..." oninput="buscarInventario(this.value)">
+          <button class="btn btn-primary" onclick="abrirModalProducto()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" style="vertical-align:-2px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nuevo Producto
+          </button>
+        </div>
+        <div class="inv-toolbar-center">
           <div class="inv-modo-toggle">
             <button class="inv-modo-btn active" onclick="invModo('lista',this)" title="Ver como lista">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
@@ -358,10 +364,6 @@
             </div>
           </div>
         </div>
-        <button class="btn btn-primary" onclick="abrirModalProducto()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" style="vertical-align:-2px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Nuevo Producto
-        </button>
       </div>
 
       <!-- VISTA POR REFERENCIA -->
@@ -370,7 +372,7 @@
           <table class="desktop-table">
             <thead>
               <tr>
-                <th>Producto</th>
+                <th style="width:1%;">Producto</th>
                 <th style="text-align:center;">Stock</th>
                 <th style="text-align:right;">Costo</th>
                 <th style="text-align:right;">Precio</th>
@@ -400,7 +402,7 @@
 
     <!-- MODAL NUEVO/EDITAR PRODUCTO -->
     <div class="modal-overlay" id="modal-prod">
-      <div class="modal">
+      <div class="modal modal-prod">
         <div class="modal-head">
           <h3 id="modal-prod-title"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nuevo Producto</h3>
           <button class="modal-close" onclick="cerrarModalProducto()">✕</button>
@@ -417,7 +419,7 @@
             <input class="form-input" id="p-referencia" readonly>
           </div>
           <div class="form-group">
-            <label class="form-label">Stock Inicial</label>
+            <label class="form-label">Cantidad Inicial</label>
             <input class="form-input" type="number" id="p-stock" value="0" min="0">
           </div>
           <div class="form-group full">
@@ -478,12 +480,6 @@
           <div class="caja-kpi-label">Efectivo</div>
           <div class="caja-kpi-value" id="kpi-efectivo-valor">$0</div>
           <div class="caja-kpi-hint">▶ Ver billetes</div>
-        </div>
-        <div class="caja-kpi nequi" onclick="toggleCaja('nequi')">
-          <div class="caja-kpi-logo"><img src="assets/img/logo-nequi.png" style="height:50px;object-fit:contain;"></div>
-          <div class="caja-kpi-label">Nequi</div>
-          <div class="caja-kpi-value" id="kpi-nequi-valor">$0</div>
-          <div class="caja-kpi-hint">▶ Ver / editar</div>
         </div>
         <div class="caja-kpi banco" onclick="toggleCaja('banco')">
          <div class="caja-kpi-logo"><img src="assets/img/logo-bancolombia.png" style="height:50px;object-fit:contain;"></div>
@@ -636,26 +632,14 @@
         </div>
       </div>
 
-     <!-- Panel Nequi -->
-      <div class="expand-panel" id="panel-nequi">
-        <div class="expand-title" style="color:var(--nequi-text);">nequi — Detalle</div>
-        <div class="bank-row"><span>Saldo actual</span><strong id="nequi-saldo-actual">$0</strong></div>
-        <div style="margin-top:12px;display:flex;gap:8px;">
-          <input class="form-input" placeholder="Ajuste manual de saldo" id="nequi-nuevo" oninput="formatNum(this)">
-          <button class="btn" style="background:var(--nequi-dark);color:var(--nequi-text);" onclick="ajustarSaldoBanco('nequi')">Guardar</button>
-        </div>
-        <button class="btn btn-secondary" style="width:100%;margin-top:10px;" onclick="abrirTransferencia('Nequi','Bancolombia')">🔄 Enviar a Bancolombia</button>
-      </div>
-
-      <!-- Panel Bancolombia -->
+     <!-- Panel Bancolombia -->
       <div class="expand-panel" id="panel-banco">
         <div class="expand-title" style="color:var(--banco-text);">Bancolombia — Detalle</div>
         <div class="bank-row"><span>Saldo actual</span><strong id="banco-saldo-actual">$0</strong></div>
         <div style="margin-top:12px;display:flex;gap:8px;">
           <input class="form-input" placeholder="Ajuste manual de saldo" id="banco-nuevo" oninput="formatNum(this)">
-          <button class="btn" style="background:var(--banco-dark);color:var(--banco-text);" onclick="ajustarSaldoBanco('bancolombia')">Guardar</button>
+          <button class="btn" style="background:var(--banco-dark);color:var(--banco-text);" onclick="ajustarSaldoBanco()">Guardar</button>
         </div>
-        <button class="btn btn-secondary" style="width:100%;margin-top:10px;" onclick="abrirTransferencia('Bancolombia','Nequi')">🔄 Enviar a Nequi</button>
       </div>
 
       <!-- Contra Entregas -->
@@ -729,26 +713,6 @@
         </div>
       </div>
     </div>
-    <!-- MODAL TRANSFERENCIA -->
-    <div class="modal-overlay" id="modal-transf">
-      <div class="modal">
-        <div class="modal-head">
-          <h3 id="t-titulo">🔄 Transferencia Interna</h3>
-          <button class="modal-close" onclick="cerrarModalTransf()">✕</button>
-        </div>
-        <p id="t-desc" style="font-size:13px;color:var(--gris-60);margin-bottom:14px;"></p>
-        <div class="form-grid">
-          <div class="form-group full">
-            <label class="form-label">Monto a transferir</label>
-            <input class="form-input" id="t-monto" type="text" placeholder="0" oninput="formatNum(this)">
-          </div>
-        </div>
-        <div class="form-footer">
-          <button class="btn btn-secondary" onclick="cerrarModalTransf()">Cancelar</button>
-          <button class="btn btn-primary" onclick="confirmarTransferencia()">🔄 Transferir</button>
-        </div>
-      </div>
-    </div>
     <!-- MODAL CERRAR MES -->
     <div class="modal-overlay" id="modal-cerrar-mes">
       <div class="modal">
@@ -776,7 +740,7 @@
           <span id="cerrar-mes-utilidad" style="font-weight:900;">$0</span>
         </div>
         <p style="font-size:11px;color:var(--gris-60);margin:14px 0;">
-          <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Los saldos de Efectivo, Nequi y Bancolombia se mantienen como punto de partida para el nuevo mes. Las ventas, compras y gastos quedarán archivados y podrás consultarlos desde el Dashboard.
+          <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Los saldos de Efectivo y Bancolombia se mantienen como punto de partida para el nuevo mes. Las ventas, compras y gastos quedarán archivados y podrás consultarlos desde el Dashboard.
         </p>
         <div class="form-footer">
           <button class="btn btn-secondary" onclick="cerrarModalCerrarMes()">Cancelar</button>
@@ -802,9 +766,8 @@
           <div class="form-group full">
             <label class="form-label">¿Cómo llegó el pago?</label>
             <select class="form-select" id="abono-venta-fuente">
-              <option value="efectivo">Efectivo</option>
-              <option value="nequi">nequi</option>
               <option value="bancolombia">Bancolombia</option>
+              <option value="efectivo">Efectivo</option>
             </select>
           </div>
         </div>
@@ -833,9 +796,8 @@
           <div class="form-group full">
             <label class="form-label">¿De dónde sale el pago?</label>
             <select class="form-select" id="abono-compra-fuente">
-              <option value="efectivo">Efectivo</option>
-              <option value="nequi">nequi</option>
               <option value="bancolombia">Bancolombia</option>
+              <option value="efectivo">Efectivo</option>
             </select>
           </div>
         </div>
@@ -863,9 +825,8 @@
          <div class="form-group full">
             <label class="form-label">¿A donde llegara el abono?</label>
             <select class="form-select" id="abono-pend-fuente">
-              <option value="efectivo">Efectivo</option>
-              <option value="nequi">Nequi</option>
               <option value="bancolombia">Bancolombia</option>
+              <option value="efectivo">Efectivo</option>
             </select>
           </div>
         </div>
@@ -886,9 +847,8 @@
         <div class="form-group">
           <label class="form-label">Cuenta</label>
           <select class="form-select" id="fuente-compra-cuenta">
-            <option value="efectivo">Efectivo</option>
-            <option value="nequi">nequi</option>
             <option value="bancolombia">Bancolombia</option>
+            <option value="efectivo">Efectivo</option>
           </select>
         </div>
         <div class="form-footer">
@@ -905,7 +865,7 @@
         </div>
 
         <p style="font-size:13px;color:var(--gris-80);margin-bottom:14px;">
-          Antes de empezar, ingresa cuánto tienes hoy en efectivo (por billete/moneda) y los saldos de Nequi y Bancolombia. Esto será tu punto de partida.
+          Antes de empezar, ingresa cuánto tienes hoy en efectivo (por billete/moneda) y el saldo de Bancolombia. Esto será tu punto de partida.
         </p>
 
         <div class="expand-title"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg> Efectivo — Billetes y Monedas</div>
@@ -1026,11 +986,7 @@
         </div>
 
         <div class="form-grid" style="margin-top:14px;">
-          <div class="form-group">
-            <label class="form-label">nequi — Saldo actual</label>
-            <input class="form-input" id="si-nequi" type="text" placeholder="0" oninput="formatNum(this)">
-          </div>
-          <div class="form-group">
+          <div class="form-group full">
             <label class="form-label">Bancolombia — Saldo actual</label>
             <input class="form-input" id="si-bancolombia" type="text" placeholder="0" oninput="formatNum(this)">
           </div>
@@ -1121,20 +1077,13 @@
           <div class="form-group" id="v-metodo-wrap">
             <label class="form-label">Método de Pago</label>
             <select class="form-select" id="v-metodo" onchange="cambioMetodoPago()">
+              <option value="transferencia">Bancolombia</option>
               <option value="efectivo">Efectivo</option>
-              <option value="transferencia">Transferencia</option>
             </select>
           </div>
           <div class="form-group">
             <label class="form-label">Fecha</label>
             <input class="form-input" type="date" id="v-fecha">
-          </div>
-          <div class="form-group" id="v-banco-wrap" style="display:none;">
-            <label class="form-label">Recibir en</label>
-            <select class="form-select" id="v-banco">
-              <option value="Nequi">nequi</option>
-              <option value="Bancolombia">Bancolombia</option>
-            </select>
           </div>
           <div class="form-group full">
             <div class="venta-tipo-banner contra" id="v-banner-contra">
@@ -1214,9 +1163,8 @@
           <div class="form-group full" id="co-fuente-wrap">
             <label class="form-label">¿De dónde sale el pago?</label>
             <select class="form-select" id="co-fuente-select">
-              <option value="efectivo">Efectivo</option>
-              <option value="nequi">nequi</option>
               <option value="bancolombia">Bancolombia</option>
+              <option value="efectivo">Efectivo</option>
             </select>
           </div>
           <div class="form-group full" id="co-credito-banner" style="display:none;">
@@ -1267,9 +1215,8 @@
           <div class="form-group">
             <label class="form-label">¿De dónde sale?</label>
             <select class="form-select" id="g-fuente">
-              <option value="efectivo">Efectivo</option>
-              <option value="nequi">nequi</option>
               <option value="bancolombia">Bancolombia</option>
+              <option value="efectivo">Efectivo</option>
             </select>
           </div>
           
@@ -1304,9 +1251,8 @@
          <div class="form-group">
             <label class="form-label">Sale de</label>
             <select class="form-select" id="pe-fuente">
-              <option value="efectivo">Efectivo</option>
-              <option value="nequi">nequi</option>
               <option value="bancolombia">Bancolombia</option>
+              <option value="efectivo">Efectivo</option>
             </select>
           </div>
           <div class="form-group full">
@@ -1365,7 +1311,6 @@
           <div class="form-group full" id="ce-cuenta-wrap" style="display:none;">
             <label class="form-label">¿A qué cuenta llegó el dinero?</label>
             <select class="form-select" id="ce-cuenta">
-              <option value="nequi">nequi</option>
               <option value="bancolombia">Bancolombia</option>
             </select>
           </div>
@@ -1548,7 +1493,6 @@
       <div class="resumen-panel" id="resumen-panel">
         <div style="font-family:'Nunito',sans-serif;font-weight:900;color:var(--fucsia);font-size:13px;margin-bottom:8px;">RESUMEN DE CAJA</div>
        <div class="resumen-item"><span><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg> Efectivo</span><strong id="r-efectivo">$0</strong></div>
-        <div class="resumen-item"><span>nequi</span><strong id="r-nequi">$0</strong></div>
         <div class="resumen-item"><span>Bancolombia</span><strong id="r-banco">$0</strong></div>
         <div class="resumen-item"><span><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> Contra Entregas</span><strong id="r-transito" style="color:var(--amarillo);">$0</strong></div>
         <div class="resumen-item"><span><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Pendientes</span><strong id="r-pendientes" style="color:var(--rojo);">$0</strong></div>
@@ -1575,7 +1519,7 @@
         <div class="kpi-card verde">
           <div class="kpi-label">Transferencia</div>
           <div class="kpi-value" id="kpi-ventas-transferencia">$0</div>
-          <div class="kpi-sub">Nequi / Bancolombia</div>
+          <div class="kpi-sub">Bancolombia</div>
         </div>
         <div class="kpi-card amarillo">
           <div class="kpi-label">Contra Entrega</div>
@@ -1961,10 +1905,21 @@
 
     <div id="sim-items-list"></div>
 
-    <button type="button" class="btn btn-secondary" style="width:100%;margin-top:6px;" onclick="agregarItemSim()"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Agregar producto</button>
+    <button type="button" class="btn-add-item-subtle" onclick="agregarItemSim()"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Agregar otro producto</button>
+    <button type="button" class="btn-add-item-subtle" onclick="agregarItemSimLibre()" style="margin-top:6px;"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Agregar producto personalizado</button>
+
+    <div class="form-grid" style="margin-top:12px;">
+      <div class="form-group">
+        <label class="form-label">Domicilio (opcional)</label>
+        <input class="form-input" id="sim-domicilio" type="text" placeholder="0" oninput="formatNum(this);cambiarDomicilioSim()">
+      </div>
+    </div>
 
     <div class="multi-items-total subtotal" style="margin-top:10px;">
       <span>Subtotal</span><span id="sim-subtotal">$0</span>
+    </div>
+    <div class="multi-items-total" id="sim-domicilio-row" style="display:none;background:var(--celeste-light);">
+      <span>🚚 Domicilio</span><span id="sim-domicilio-valor">+$0</span>
     </div>
     <div class="multi-items-total">
       <span>TOTAL</span><span id="sim-total">$0</span>

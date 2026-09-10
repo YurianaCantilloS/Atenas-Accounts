@@ -112,6 +112,15 @@ function showView(name){
   localStorage.setItem('atenas_vista_actual', name);
 }
 
+/** Vuelve a la página en la que estaba el usuario al refrescar/recargar la app */
+function restaurarVistaGuardada(){
+  let vistaGuardada = localStorage.getItem('atenas_vista_actual') || 'dashboard';
+  try{
+    if(!document.getElementById('view-' + vistaGuardada)) vistaGuardada = 'dashboard';
+  }catch(e){ vistaGuardada = 'dashboard'; }
+  showView(vistaGuardada);
+}
+
 
 /** Abre/cierra el menú hamburguesa móvil */
 function toggleMobileMenu(){
@@ -180,9 +189,9 @@ function toggleGrupo(header){
 }
 
 
-/* ── CAJA: Expandir/colapsar paneles (Efectivo, Nequi, Banco) ─ */
+/* ── CAJA: Expandir/colapsar paneles (Efectivo, Banco) ─ */
 function toggleCaja(which){
-  const panels = ['efectivo','nequi','banco'];
+  const panels = ['efectivo','banco'];
   panels.forEach(p=>{
     const el = document.getElementById('panel-' + p);
     if(!el) return;
@@ -228,38 +237,6 @@ function stepDenom(input, valor, delta, contexto){
   recalcDenom(input, valor, contexto);
 }
 
-/** Transferencia interna Nequi <-> Bancolombia (demo visual) */
-let _transfOrigen = '';
-let _transfDestino = '';
-
-function abrirTransferencia(origen, destino){
-  _transfOrigen = origen;
-  _transfDestino = destino;
-  document.getElementById('t-desc').textContent = `Enviar dinero de ${origen} hacia ${destino}.`;
-  document.getElementById('t-monto').value = '';
-  document.getElementById('modal-transf').classList.add('open');
-}
-
-function cerrarModalTransf(){
-  document.getElementById('modal-transf').classList.remove('open');
-}
-
-async function confirmarTransferencia(){
-  const monto = rawNum(document.getElementById('t-monto'));
-  if(monto <= 0){
-    showToast('⚠️ Ingresa un monto válido', 'error');
-    return;
-  }
-
-  const origen = _transfOrigen.toLowerCase();
-  const destino = _transfDestino.toLowerCase();
-
-  await actualizarSaldoCaja(origen, -monto, `Transferencia a ${_transfDestino}`);
-  await actualizarSaldoCaja(destino, monto, `Transferencia desde ${_transfOrigen}`);
-
-  showToast(`✅ ${formatCOP(monto)} transferidos de ${_transfOrigen} a ${_transfDestino}`);
-  cerrarModalTransf();
-}
 function toggleResumen(){
   document.getElementById('resumen-panel').classList.toggle('open');
   const cp = document.getElementById('chat-panel');
@@ -344,7 +321,7 @@ function resetFormVenta(){
   document.getElementById('v-cliente').value = '';
   document.getElementById('v-fecha').value = new Date().toISOString().split('T')[0];
   document.getElementById('v-tipo').value = 'contado';
-  document.getElementById('v-metodo').value = 'efectivo';
+  document.getElementById('v-metodo').value = 'transferencia';
   document.getElementById('v-tiene-descuento').checked = false;
   document.getElementById('v-descuento-fields').style.display = 'none';
   document.getElementById('v-descuento').value = '';
@@ -372,8 +349,7 @@ function editarVenta(btn){
   document.getElementById('v-cliente').value = v.cliente_nombre || '';
   document.getElementById('v-fecha').value = v.fecha || new Date().toISOString().split('T')[0];
   document.getElementById('v-tipo').value = v.tipo;
-  if(v.metodo_pago) document.getElementById('v-metodo').value = v.metodo_pago;
-  if(v.banco) document.getElementById('v-banco').value = v.banco;
+  document.getElementById('v-metodo').value = v.metodo_pago === 'efectivo' ? 'efectivo' : 'transferencia';
   document.getElementById('v-tiene-descuento').checked = v.descuento > 0;
   document.getElementById('v-descuento-fields').style.display = v.descuento > 0 ? 'grid' : 'none';
   document.getElementById('v-descuento').value = v.descuento > 0 ? v.descuento.toLocaleString('es-CO') : '';
@@ -572,23 +548,17 @@ function cambioTipoVenta(){
 
   if(tipo === 'contraentrega'){
     metodoWrap.style.display = 'none';
-    document.getElementById('v-banco-wrap').style.display = 'none';
     banner.classList.add('show');
   } else if(tipo === 'credito'){
     metodoWrap.style.display = 'none';
-    document.getElementById('v-banco-wrap').style.display = 'none';
     banner.classList.remove('show');
   } else {
     metodoWrap.style.display = 'flex';
     banner.classList.remove('show');
-    cambioMetodoPago();
   }
 }
 
-function cambioMetodoPago(){
-  const metodo = document.getElementById('v-metodo').value;
-  document.getElementById('v-banco-wrap').style.display = metodo === 'transferencia' ? 'flex' : 'none';
-}
+function cambioMetodoPago(){}
 
 
 /* ── Tabla de ventas: expandir detalle ──────────────────────── */
@@ -927,7 +897,6 @@ function filtrarGastos(){
 
 const FUENTES_PENDIENTE = {
   efectivo:    { label:'Efectivo' },
-  nequi:       { label:'nequi' },
   bancolombia: { label:'Bancolombia' },
 };
 
@@ -938,7 +907,7 @@ function abrirModalPendiente(){
   document.getElementById('modal-pendiente').classList.add('open');
   document.getElementById('pe-descripcion').value = '';
   document.getElementById('pe-monto').value = '';
-  document.getElementById('pe-fuente').value = 'efectivo';
+  document.getElementById('pe-fuente').value = 'bancolombia';
   document.querySelector('#modal-pendiente .btn-primary').innerHTML = ico('plus', 13) + ' Agregar';
   document.getElementById('pe-ya-descontado').checked = false;
 }
@@ -1803,10 +1772,9 @@ function abrirModalSaldoInicial(){
 
 function guardarSaldoInicial(){
   const efectivo = parseInt(document.getElementById('si-total-efectivo').textContent.replace(/[^\d]/g,'')) || 0;
-  const nequi = rawNum(document.getElementById('si-nequi'));
   const bancolombia = rawNum(document.getElementById('si-bancolombia'));
 
-  showToast(`✅ Saldos iniciales guardados: Efectivo ${formatCOP(efectivo)}, Nequi ${formatCOP(nequi)}, Bancolombia ${formatCOP(bancolombia)}`, 'success');
+  showToast(`✅ Saldos iniciales guardados: Efectivo ${formatCOP(efectivo)}, Bancolombia ${formatCOP(bancolombia)}`, 'success');
   document.getElementById('modal-saldo-inicial').classList.remove('open');
 }
 
@@ -1889,22 +1857,27 @@ function siguienteReferencia(){
    }
    await cargarProductos(); // primero siempre
    actualizarSugerenciasChat();
+   restaurarVistaGuardada(); // al refrescar se queda en la página donde estaba
   const { data: config } = await sb.from('configuracion').select('*').eq('id', 1).single();
   if(config && config.meta_ventas_mes) _metaVentas = config.meta_ventas_mes;
-  await cargarClientes();
-  await cargarProveedores();
-  await cargarSimulaciones();
-  await cargarCotizaciones();
-  await cargarVentas();
-  await cargarCompras();
-  await cargarGastos();
-  await cargarPendientes();
-  await cargarCaja();
-  await cargarContraEntregas();
-   await cargarDashboard();
+  try{
+    await cargarClientes();
+    await cargarProveedores();
+    await cargarSimulaciones();
+    await cargarCotizaciones();
+    await cargarVentas();
+    await cargarCompras();
+    await cargarGastos();
+    await cargarPendientes();
+    await cargarCaja();
+    await cargarContraEntregas();
+    await cargarDashboard();
+  }catch(e){ console.warn('Error cargando datos de inicio:', e); }
    actualizarBotonCerrarMes();
-   await cargarContraEntregas();
-   await cargarEnvios();
+  try{
+    await cargarContraEntregas();
+    await cargarEnvios();
+  }catch(e){ console.warn('Error cargando datos extra:', e); }
      // Fijar mes actual por defecto en filtros
   const mesHoy = new Date().getMonth() + 1;
   const selVentas = document.getElementById('f-mes');
@@ -1913,9 +1886,6 @@ function siguienteReferencia(){
   if(selCompras) selCompras.value = mesHoy;
   const selGastos = document.getElementById('g-mes');
   if(selGastos) selGastos.value = mesHoy;
-   // Restaurar la última vista visitada al recargar
-  const vistaGuardada = localStorage.getItem('atenas_vista_actual');
-  if(vistaGuardada && document.getElementById('view-' + vistaGuardada)) showView(vistaGuardada);
    // Mostrar fecha actual en dashboard
   const hoy = new Date();
   const diasSemana = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
@@ -1969,17 +1939,17 @@ function renderInventario(){
     tbody.innerHTML = PRODUCTOS.map(p=>{
       const pct = calcularMargenPct(p.costo, p.precio);
       const thumb = p.foto_url
-        ? `<img src="${p.foto_url}" style="width:38px;height:38px;border-radius:8px;object-fit:cover;">`
-        : `<div class="prod-thumb">${proIcon(p.icono, 18)}</div>`;
+        ? `<img src="${p.foto_url}" style="width:56px;height:56px;border-radius:10px;object-fit:cover;">`
+        : `<div class="prod-thumb prod-thumb-lg">${proIcon(p.icono, 24)}</div>`;
       return `
         <tr>
-          <td>
+          <td style="white-space:nowrap;width:1%;">
             <div class="prod-cell">
               ${thumb}
               <div><div class="prod-name">${p.nombre}</div><span class="prod-ref">${p.referencia}</span></div>
             </div>
           </td>
-        <td style="text-align:center;"><span class="badge ${claseStock(p.stock)}" style="font-size:13px;font-weight:900;padding:4px 12px;">${p.stock}</span></td>
+          <td style="text-align:center;"><span class="badge ${claseStock(p.stock)}" style="font-size:12px;font-weight:900;padding:2px 10px;">${p.stock}</span></td>
           <td style="text-align:right;">${formatCOP(p.costo)}</td>
           <td style="text-align:right;font-weight:700;">${formatCOP(p.precio)}</td>
           <td style="text-align:center;" class="${claseMargen(pct)}">${pct.toFixed(1)}%</td>
@@ -1996,41 +1966,41 @@ function renderInventario(){
     mobileCont.innerHTML = PRODUCTOS.map(p=>{
       const pct = calcularMargenPct(p.costo, p.precio);
       const thumb = p.foto_url
-        ? `<img src="${p.foto_url}" style="width:52px;height:52px;border-radius:10px;object-fit:cover;">`
-        : `<div style="width:52px;height:52px;border-radius:10px;background:var(--gris-10);display:flex;align-items:center;justify-content:center;font-size:22px;border:1px solid var(--gris-20);">${proIcon(p.icono, 22)}</div>`;
+        ? `<img src="${p.foto_url}" style="width:64px;height:64px;border-radius:12px;object-fit:cover;flex-shrink:0;">`
+        : `<div style="width:64px;height:64px;border-radius:12px;background:var(--gris-10);display:flex;align-items:center;justify-content:center;font-size:26px;border:1px solid var(--gris-20);flex-shrink:0;">${proIcon(p.icono, 26)}</div>`;
       return `
-        <div style="padding:10px 12px;border-bottom:1px solid var(--gris-20);">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-            ${thumb}
-            <div style="flex:1;text-align:center;">
-              <div style="font-weight:800;font-size:13px;">${p.nombre}</div>
-              <span style="font-size:9px;font-family:monospace;background:var(--gris-20);padding:1px 5px;border-radius:4px;">${p.referencia}</span>
+        <div style="padding:12px 14px;border-bottom:1px solid var(--gris-20);display:flex;gap:12px;">
+          ${thumb}
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:2px;">
+              <div style="font-weight:800;font-size:13px;line-height:1.2;flex:1;min-width:0;">${p.nombre}</div>
+              <div style="display:flex;gap:4px;flex-shrink:0;">
+                <button class="btn-icon" onclick="editarProducto('${p.id}')">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                <button class="btn-icon" onclick="eliminarProducto('${p.id}')" style="color:var(--rojo);">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                </button>
+              </div>
             </div>
-            <div style="display:flex;gap:6px;flex-shrink:0;">
-              <button class="btn-icon" onclick="editarProducto('${p.id}')">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-              </button>
-              <button class="btn-icon" onclick="eliminarProducto('${p.id}')" style="color:var(--rojo);">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-              </button>
-            </div>
-          </div>
-          <div style="display:grid;grid-template-columns:52px 1fr 1fr 1fr;gap:4px;text-align:center;font-size:10px;">
-            <div>
-              <div style="color:var(--gris-60);">Stock</div>
-              <div><span class="badge ${claseStock(p.stock)}" style="font-size:10px;padding:1px 6px;">${p.stock}</span></div>
-            </div>
-            <div>
-              <div style="color:var(--gris-60);">Costo</div>
-              <div style="font-weight:800;font-size:12px;">${formatCOP(p.costo)}</div>
-            </div>
-            <div>
-              <div style="color:var(--gris-60);">Precio</div>
-              <div style="font-weight:800;font-size:12px;">${formatCOP(p.precio)}</div>
-            </div>
-            <div>
-              <div style="color:var(--gris-60);">Margen</div>
-              <div style="font-weight:800;font-size:12px;" class="${claseMargen(pct)}">${pct.toFixed(1)}%</div>
+            <span class="prod-ref" style="display:inline-block;">${p.referencia}</span>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;text-align:center;font-size:10px;margin-top:8px;">
+              <div>
+                <div style="color:var(--gris-60);">Stock</div>
+                <div><span class="badge ${claseStock(p.stock)}" style="font-size:10px;padding:1px 6px;">${p.stock}</span></div>
+              </div>
+              <div>
+                <div style="color:var(--gris-60);">Costo</div>
+                <div style="font-weight:800;font-size:12px;">${formatCOP(p.costo)}</div>
+              </div>
+              <div>
+                <div style="color:var(--gris-60);">Precio</div>
+                <div style="font-weight:800;font-size:12px;">${formatCOP(p.precio)}</div>
+              </div>
+              <div>
+                <div style="color:var(--gris-60);">Margen</div>
+                <div style="font-weight:800;font-size:12px;" class="${claseMargen(pct)}">${pct.toFixed(1)}%</div>
+              </div>
             </div>
           </div>
         </div>
@@ -2041,23 +2011,27 @@ function renderInventario(){
       cardsCont.innerHTML = PRODUCTOS.map(p=>{
         const pct = calcularMargenPct(p.costo, p.precio);
         const thumb = p.foto_url
-          ? `<img src="${p.foto_url}" style="width:52px;height:52px;border-radius:12px;object-fit:cover;">`
-          : `<div style="width:52px;height:52px;border-radius:12px;background:var(--gris-10);display:flex;align-items:center;justify-content:center;font-size:24px;border:1px solid var(--gris-20);">${proIcon(p.icono, 24)}</div>`;
+          ? `<img src="${p.foto_url}" style="width:64px;height:64px;border-radius:12px;object-fit:cover;flex-shrink:0;">`
+          : `<div style="width:64px;height:64px;border-radius:12px;background:var(--gris-10);display:flex;align-items:center;justify-content:center;font-size:28px;border:1px solid var(--gris-20);flex-shrink:0;">${proIcon(p.icono, 28)}</div>`;
         return `
           <div class="inv-card">
             <div class="inv-card-head">
               ${thumb}
-              <div class="inv-card-actions">
-                <button class="btn-icon" onclick="editarProducto('${p.id}')" title="Editar">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                </button>
-                <button class="btn-icon" onclick="eliminarProducto('${p.id}')" title="Eliminar" style="color:var(--rojo);">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                </button>
+              <div style="flex:1;min-width:0;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">
+                  <div style="flex:1;min-width:0;"><div class="inv-card-name">${p.nombre}</div></div>
+                  <div class="inv-card-actions">
+                    <button class="btn-icon" onclick="editarProducto('${p.id}')" title="Editar">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button class="btn-icon" onclick="eliminarProducto('${p.id}')" title="Eliminar" style="color:var(--rojo);">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                    </button>
+                  </div>
+                </div>
+                <span class="prod-ref" style="display:inline-block;">${p.referencia}</span>
               </div>
             </div>
-            <div class="inv-card-name">${p.nombre}</div>
-            <span class="prod-ref">${p.referencia}</span>
             <div class="inv-card-stats">
               <div class="inv-stat">
                 <span class="lbl">Stock</span>
@@ -2127,10 +2101,12 @@ function renderInventario(){
 
 let _productoEditando = null; // id del producto si se está editando, null si es nuevo
 let _fotoFile = null; // archivo de foto seleccionado (pendiente de subir)
+let _productoStockPrev = null; // {inicial, stock} guardados antes de editar (para ajustar el actual)
 
 function abrirModalProducto(){
   _productoEditando = null;
   _fotoFile = null;
+  _productoStockPrev = null;
   document.getElementById('modal-prod-title').innerHTML = ico('plus', 13) + ' Nuevo Producto';
   document.getElementById('p-referencia').value = siguienteReferencia();
   document.getElementById('p-nombre').value = '';
@@ -2163,9 +2139,11 @@ function previewFoto(event){
   reader.onload = function(ev){
     const area = document.getElementById('foto-area');
     area.innerHTML = `
-      <img src="${ev.target.result}" class="photo-preview">
+      <label class="photo-wrap" for="foto-input" title="Click para cambiar foto">
+        <img src="${ev.target.result}" class="photo-preview">
+        <span class="photo-edit-hint">${ico('camera', 11)} Click para cambiar foto</span>
+      </label>
       <div style="text-align:center;font-size:11px;color:var(--gris-60);margin-bottom:6px;">${file.name}</div>
-      <button type="button" class="btn btn-secondary" style="width:100%;font-size:11px;" onclick="document.getElementById('foto-input').click()">Cambiar foto</button>
       <input type="file" id="foto-input" accept="image/*" style="display:none;" onchange="previewFoto(event)">
     `;
   };
@@ -2200,18 +2178,21 @@ function editarProducto(id){
 
   _productoEditando = id;
   _fotoFile = null;
+  _productoStockPrev = { inicial: (p.stock_inicial ?? p.stock), stock: p.stock };
   document.getElementById('modal-prod-title').innerHTML = ico('pencil', 13) + ' Editar Producto';
   document.getElementById('p-referencia').value = p.referencia;
   document.getElementById('p-nombre').value = p.nombre;
   document.getElementById('p-costo').value = p.costo.toLocaleString('es-CO');
   document.getElementById('p-precio').value = p.precio.toLocaleString('es-CO');
-  document.getElementById('p-stock').value = p.stock;
+  document.getElementById('p-stock').value = _productoStockPrev.inicial;
   calcMargen();
 
   if(p.foto_url){
     document.getElementById('foto-area').innerHTML = `
-      <img src="${p.foto_url}" class="photo-preview">
-      <button type="button" class="btn btn-secondary" style="width:100%;font-size:11px;" onclick="document.getElementById('foto-input').click()">Cambiar foto</button>
+      <label class="photo-wrap" for="foto-input" title="Click para cambiar foto">
+        <img src="${p.foto_url}" class="photo-preview">
+        <span class="photo-edit-hint">${ico('camera', 11)} Click para cambiar foto</span>
+      </label>
       <input type="file" id="foto-input" accept="image/*" style="display:none;" onchange="previewFoto(event)">
     `;
   } else {
@@ -2268,7 +2249,14 @@ async function guardarProducto(){
     fotoUrl = await subirACloudinary(_fotoFile); // ← CAMBIO AQUÍ: Ahora sube a Cloudinary
   }
 
-  const payload = { referencia, nombre, costo, precio, stock };
+  // Stock: el campo es la "Cantidad Inicial". El stock actual se ajusta con la misma diferencia.
+  const stockInicial = stock;
+  let stockActual = stockInicial;
+  if(_productoEditando && _productoStockPrev){
+    stockActual = Math.max(0, _productoStockPrev.stock + (stockInicial - _productoStockPrev.inicial));
+  }
+
+  const payload = { referencia, nombre, costo, precio, stock: stockActual, stock_inicial: stockInicial };
   if(fotoUrl) payload.foto_url = fotoUrl;
 
   if(_productoEditando){
@@ -2764,18 +2752,16 @@ function renderVentas(){
    const metodoBadge = v.tipo === 'contraentrega' && v.estado_contraentrega !== 'liquidado'
       ? `<span class="badge badge-amarillo">${ico('file', 11)} Contra Entrega</span>`
       : v.tipo === 'contraentrega' && v.estado_contraentrega === 'liquidado'
-        ? v.banco === 'Nequi'
-          ? `<span class="badge fuente-nequi">Nequi</span>`
-          : `<span class="badge fuente-banco">Bancolombia</span>`
+        ? `<span class="badge fuente-banco">Bancolombia</span>`
       : v.tipo === 'credito' && v.saldo_credito > 0
         ? `<span class="badge badge-rojo"> A Crédito</span>`
         : v.tipo === 'credito' && v.saldo_credito === 0
           ? v.metodo_pago === 'efectivo'
             ? `<span class="badge fuente-efectivo">Efectivo</span>`
-            : `<span class="badge fuente-${v.banco === 'Nequi' ? 'nequi' : 'banco'}">${v.banco || 'Transferencia'}</span>`
+            : `<span class="badge fuente-banco">${v.banco || 'Transferencia'}</span>`
           : v.metodo_pago === 'efectivo'
             ? `<span class="badge fuente-efectivo">Efectivo</span>`
-            : `<span class="badge fuente-${v.banco === 'Nequi' ? 'nequi' : 'banco'}">${v.banco || 'Transferencia'}</span>`;
+            : `<span class="badge fuente-banco">${v.banco || 'Transferencia'}</span>`;
 
    const thumb = esMulti
       ? `<span class="venta-badge-items">${items.length} productos</span>`
@@ -2896,7 +2882,7 @@ async function guardarVenta(){
   const clienteEl = document.getElementById('v-cliente');
   const tipo = document.getElementById('v-tipo').value;
   const metodo = document.getElementById('v-metodo').value;
-  const banco = document.getElementById('v-banco').value;
+  const banco = metodo === 'efectivo' ? null : 'Bancolombia';
 
   if(!clienteEl.value.trim()){
     showToast('⚠️ Falta el nombre del cliente', 'error');
@@ -3039,7 +3025,7 @@ async function guardarVenta(){
       if(metodo === 'efectivo'){
         await actualizarSaldoCaja('efectivo', total, `Venta — ${clienteEl.value.trim()}`);
       } else if(metodo === 'transferencia'){
-        await actualizarSaldoCaja(banco === 'Nequi' ? 'nequi' : 'bancolombia', total, `Venta — ${clienteEl.value.trim()}`);
+        await actualizarSaldoCaja('bancolombia', total, `Venta — ${clienteEl.value.trim()}`);
       }
     }
 
@@ -3075,10 +3061,9 @@ function eliminarVenta(id){
     if(v){
       let cuenta = null;
       if(v.tipo === 'contado'){
-        cuenta = v.metodo_pago === 'efectivo' ? 'efectivo'
-          : v.banco === 'Nequi' ? 'nequi' : 'bancolombia';
+        cuenta = v.metodo_pago === 'efectivo' ? 'efectivo' : 'bancolombia';
       } else if(v.tipo === 'contraentrega' && v.estado_contraentrega === 'liquidado'){
-        cuenta = v.banco === 'Nequi' ? 'nequi' : 'bancolombia';
+        cuenta = 'bancolombia';
       }
 
       if(cuenta){
@@ -3228,11 +3213,9 @@ function renderCompras(){
     const esMulti = items.length > 1;
    const tipoBadge = c.tipo === 'credito' && c.saldo_credito > 0
       ? `<span class="badge badge-rojo">${ico('card', 11)} A Crédito</span>`
-      : c.fuente === 'nequi'
-        ? `<span class="badge fuente-nequi">Nequi</span>`
-        : c.fuente === 'bancolombia'
-          ? `<span class="badge fuente-banco">Bancolombia</span>`
-          : `<span class="badge fuente-efectivo">Efectivo</span>`;
+      : c.fuente === 'bancolombia'
+        ? `<span class="badge fuente-banco">Bancolombia</span>`
+        : `<span class="badge fuente-efectivo">Efectivo</span>`;
 
     const tipoClase = c.tipo === 'credito' && c.saldo_credito > 0 ? 'tipo-credito' : 'tipo-contado';
     const badgeMultiCompra = c.tipo === 'credito' && c.saldo_credito > 0
@@ -3593,7 +3576,7 @@ function abrirModalGasto(){
   document.getElementById('g-concepto').value = '';
   document.getElementById('g-valor').value = '';
   document.getElementById('g-tipo').value = 'empaque';
-  document.getElementById('g-fuente').value = 'efectivo';
+  document.getElementById('g-fuente').value = 'bancolombia';
   document.getElementById('g-fecha').value = new Date().toISOString().split('T')[0];
   document.getElementById('modal-gasto').classList.add('open');
 }
@@ -3666,7 +3649,7 @@ function abrirModalAbonoVenta(id, saldo){
   _abonoVentaSaldo = saldo;
   document.getElementById('abono-venta-saldo').textContent = formatCOP(saldo);
   document.getElementById('abono-venta-monto').value = '';
-  document.getElementById('abono-venta-fuente').value = 'efectivo';
+  document.getElementById('abono-venta-fuente').value = 'bancolombia';
   document.getElementById('modal-abono-venta').classList.add('open');
 }
 
@@ -3710,7 +3693,7 @@ async function confirmarAbonoVenta(){
       await sb.from('ventas').update({
         tipo: 'contado',
         metodo_pago: fuente === 'efectivo' ? 'efectivo' : 'transferencia',
-        banco: fuente === 'nequi' ? 'Nequi' : fuente === 'bancolombia' ? 'Bancolombia' : null
+        banco: fuente === 'efectivo' ? null : 'Bancolombia'
       }).eq('id', _abonoVentaId);
       showToast(`✅ Venta pagada completamente`, 'success');
     } else {
@@ -3723,7 +3706,7 @@ async function confirmarAbonoVenta(){
     await sb.from('ventas').update({
       tipo: 'contado',
       metodo_pago: fuente === 'efectivo' ? 'efectivo' : 'transferencia',
-      banco: fuente === 'nequi' ? 'Nequi' : fuente === 'bancolombia' ? 'Bancolombia' : null
+      banco: fuente === 'efectivo' ? null : 'Bancolombia'
     }).eq('id', _abonoVentaId);
     showToast(`✅ Venta pagada completamente`, 'success');
   }
@@ -3746,7 +3729,7 @@ function abrirModalAbonoCompra(id, saldo){
   _abonoCompraSaldo = saldo;
   document.getElementById('abono-compra-saldo').textContent = formatCOP(saldo);
   document.getElementById('abono-compra-monto').value = '';
-  document.getElementById('abono-compra-fuente').value = 'efectivo';
+  document.getElementById('abono-compra-fuente').value = 'bancolombia';
   document.getElementById('modal-abono-compra').classList.add('open');
 }
 
@@ -4084,6 +4067,12 @@ function fxInvoiceStyle(){
   .fx-total-num{font-size:30px;font-weight:800;color:var(--fx-rosa);line-height:1;letter-spacing:.5px;}
   .fx-descuento{font-size:10.5px;color:var(--fx-texto2);font-weight:600;}
   .fx-descuento span{color:#D11A70;font-weight:700;}
+  .fx-domicilio{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:#FFF3D6;border:1px solid #F5C542;border-radius:14px;
+    padding:11px 18px;font-size:12.5px;font-weight:800;color:#8A5B00;
+    box-shadow:0 4px 12px rgba(245,197,66,.18);}
+  .fx-domicilio-label{display:inline-flex;align-items:center;gap:8px;}
+  .fx-domicilio-valor{font-size:15px;font-weight:900;}
 
   /* ---- pago ---- */
   .fx-pago-wrap{display:flex;justify-content:center;}
@@ -4217,12 +4206,19 @@ function fxProdsHTML(rowsHtml){
     </div>`;
 }
 
-/** Bloque total + método de pago */
-function fxTotalHTML({total, descuento, metodoPago}){
+/** Bloque total + método de pago (domicilio va en su propia fila resaltada arriba del total) */
+function fxTotalHTML({total, descuento, domicilio, metodoPago}){
   const descRow = descuento > 0
     ? `<div class="fx-descuento">Descuento <span>− ${formatCOP(descuento)}</span></div>`
     : '';
+  const domRow = domicilio > 0
+    ? `<div class="fx-domicilio">
+         <span class="fx-domicilio-label">${fxIcon('pin', 14, '#8A5B00')} Domicilio</span>
+         <span class="fx-domicilio-valor">+ ${formatCOP(domicilio)}</span>
+       </div>`
+    : '';
   return `
+    ${domRow}
     <div class="fx-total">
       <div class="fx-total-left">
         <span class="fx-total-tag">${fxIcon('tag', 18, '#E91E83')}</span>
@@ -4266,7 +4262,7 @@ function fxDecorHTML(){
 }
 
 /** Construye el HTML completo de la factura (documento de una sola página fluida, usado como plantilla de medición) */
-function construirFacturaHTML({numero, titulo, fecha, cliente, telefono, metodoPago, items, descuento, total, logo, footer}){
+function construirFacturaHTML({numero, titulo, fecha, cliente, telefono, metodoPago, items, descuento, total, logo, footer, domicilio}){
   const rowsHtml = (items || []).map(fxRowHTML).join('');
   return `<!DOCTYPE html>
 <html lang="es">
@@ -4285,7 +4281,7 @@ function construirFacturaHTML({numero, titulo, fecha, cliente, telefono, metodoP
       ${fxContactHTML()}
       ${fxInfoHTML({fecha, cliente, metodoPago})}
       ${fxProdsHTML(rowsHtml)}
-      ${fxTotalHTML({total, descuento, metodoPago})}
+      ${fxTotalHTML({total, descuento, domicilio, metodoPago})}
       ${fxFooterContentHTML()}
     </div>
     <div class="fx-compact-measure" style="position:absolute;top:0;left:-6000px;width:195mm;visibility:hidden;">${fxCompactHTML({numero, titulo, logo, fecha, pagina:'1'})}</div>
@@ -4311,7 +4307,7 @@ async function esperarAssets(cont){
 }
 
 /** Renderiza UNA página de la factura a canvas (210×297mm exactos) */
-async function renderPaginaFactura(cont, {numero, titulo, fecha, cliente, metodoPago, rows, logo, total, descuento}, tipo, pagina, escala = 2){
+async function renderPaginaFactura(cont, {numero, titulo, fecha, cliente, metodoPago, rows, logo, total, descuento, domicilio}, tipo, pagina, escala = 2){
   const page = document.createElement('div');
   page.className = 'fx-page';
   page.style.cssText = 'position:absolute;top:0;left:0;';
@@ -4323,7 +4319,7 @@ async function renderPaginaFactura(cont, {numero, titulo, fecha, cliente, metodo
       ${fxContactHTML()}
       ${fxInfoHTML({fecha, cliente, metodoPago})}
       ${prodsBlock}
-      ${fxTotalHTML({total, descuento, metodoPago})}
+      ${fxTotalHTML({total, descuento, domicilio, metodoPago})}
       ${fxFooterContentHTML()}`;
   } else if(tipo === 'first'){
     flow = `${fxHeadHTML({numero, titulo, logo, fecha})}
@@ -4336,7 +4332,7 @@ async function renderPaginaFactura(cont, {numero, titulo, fecha, cliente, metodo
   } else {
     flow = `${fxCompactHTML({numero, titulo, logo, fecha, pagina})}
       ${prodsBlock}
-      ${fxTotalHTML({total, descuento, metodoPago})}
+      ${fxTotalHTML({total, descuento, domicilio, metodoPago})}
       ${fxFooterContentHTML()}`;
   }
   page.innerHTML = `${fxDecorHTML()}<div class="fx-flow">${flow}</div>`;
@@ -4371,7 +4367,7 @@ async function renderPaginaFactura(cont, {numero, titulo, fecha, cliente, metodo
 }
 
 /** Construye el PDF de factura con paginación correcta (sin cortar filas, con encabezado repetido) */
-async function construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPago, items, descuento, total, numero}){
+async function construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPago, items, descuento, total, numero, domicilio}){
   const { jsPDF } = window.jspdf;
   if(!window.html2canvas){
     showToast('⚠️ No se pudo generar la factura (falta html2canvas)', 'error');
@@ -4392,7 +4388,7 @@ async function construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPago
 
   const html = construirFacturaHTML({
     numero, titulo, fecha, cliente, telefono, metodoPago,
-    items: rows, descuento, total, logo
+    items: rows, descuento, total, logo, domicilio: domicilio || 0
   });
 
   const cont = document.createElement('div');
@@ -4472,7 +4468,7 @@ async function construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPago
     }
 
     const pdf = new jsPDF({orientation: 'portrait', unit: 'mm', format: 'a4'});
-    const datosPagina = {numero, titulo, fecha, cliente, metodoPago, rows, logo, total, descuento: descuento || 0};
+    const datosPagina = {numero, titulo, fecha, cliente, metodoPago, rows, logo, total, descuento: descuento || 0, domicilio: domicilio || 0};
     const canvases = await Promise.all(layoutPages.map((lp, p) =>
       renderPaginaFactura(cont, datosPagina, lp.type, String(p + 1), ESCALA)
     ));
@@ -4606,9 +4602,7 @@ function verificarSaldoInicial(){
 async function actualizarSaldoCaja(fuente, monto, descripcion){
   if(!CAJA) return;
 
-  const campo = fuente === 'efectivo' ? 'efectivo'
-    : fuente === 'nequi' ? 'nequi'
-    : 'bancolombia';
+  const campo = fuente === 'efectivo' ? 'efectivo' : 'bancolombia';
 
   const nuevoValor = (CAJA[campo] || 0) + monto;
 
@@ -4626,7 +4620,6 @@ async function renderCaja(){
   if(!CAJA) return;
 
   const efectivo = CAJA.efectivo || 0;
-  const nequi = CAJA.nequi || 0;
   const bancolombia = CAJA.bancolombia || 0;
 // Sumar pendientes pendientes por cobrar
   const totalPendientes = PENDIENTES.reduce((acc, p) => acc + (p.monto - (p.monto_abonado || 0)), 0);
@@ -4638,38 +4631,32 @@ async function renderCaja(){
     .neq('estado_contraentrega', 'liquidado');
   const totalContras = (contras || []).reduce((acc, v) => acc + v.total, 0);
 
- const total = efectivo + nequi + bancolombia;
+ const total = efectivo + bancolombia;
 
   // KPIs principales
   const elEfectivo = document.getElementById('kpi-efectivo-valor');
-  const elNequi = document.getElementById('kpi-nequi-valor');
   const elBanco = document.getElementById('kpi-banco-valor');
   const elTotal = document.getElementById('kpi-total-valor');
 
   if(elEfectivo) elEfectivo.textContent = formatCOP(efectivo);
-  if(elNequi) elNequi.textContent = formatCOP(nequi);
   if(elBanco) elBanco.textContent = formatCOP(bancolombia);
   if(elTotal) elTotal.textContent = formatCOP(total);
   // Actualizar resumen flotante
   const rEfectivo = document.getElementById('r-efectivo');
-  const rNequi = document.getElementById('r-nequi');
   const rBanco = document.getElementById('r-banco');
   const rTransito = document.getElementById('r-transito');
   const rPendientes = document.getElementById('r-pendientes');
   const rNeto = document.getElementById('r-neto');
 
   if(rEfectivo) rEfectivo.textContent = formatCOP(efectivo);
-  if(rNequi) rNequi.textContent = formatCOP(nequi);
   if(rBanco) rBanco.textContent = formatCOP(bancolombia);
 
   // Contra entregas activas (no liquidadas)
   const totalPendientesRes = PENDIENTES.reduce((acc, p) => acc + (p.monto - (p.monto_abonado || 0)), 0);
   if(rPendientes) rPendientes.textContent = totalPendientesRes > 0 ? '-' + formatCOP(totalPendientesRes) : '$0';
   if(rTransito) rTransito.textContent = formatCOP(totalContras);
- if(rNeto) rNeto.textContent = formatCOP(efectivo + nequi + bancolombia);
-  const elNequiDetalle = document.getElementById('nequi-saldo-actual');
+ if(rNeto) rNeto.textContent = formatCOP(efectivo + bancolombia);
   const elBancoDetalle = document.getElementById('banco-saldo-actual');
-  if(elNequiDetalle) elNequiDetalle.textContent = formatCOP(nequi);
   if(elBancoDetalle) elBancoDetalle.textContent = formatCOP(bancolombia);
 
   // Denominaciones de efectivo en el panel
@@ -4707,7 +4694,6 @@ async function guardarSaldoInicial(){
     const cantidad = parseInt(input?.value) || 0;
     efectivo += cantidad * d;
   });
-  const nequi = rawNum(document.getElementById('si-nequi'));
   const bancolombia = rawNum(document.getElementById('si-bancolombia'));
 
   // Leer denominaciones del modal
@@ -4726,7 +4712,6 @@ async function guardarSaldoInicial(){
 
   const payload = {
     efectivo,
-    nequi,
     bancolombia,
     configurado: true,
     updated_at: new Date().toISOString(),
@@ -4737,7 +4722,7 @@ async function guardarSaldoInicial(){
   if(error){ showToast('❌ Error: ' + error.message, 'error'); return; }
 
   CAJA = { ...CAJA, ...payload };
-  showToast(`✅ Saldo inicial configurado — Efectivo: ${formatCOP(efectivo)}, Nequi: ${formatCOP(nequi)}, Bancolombia: ${formatCOP(bancolombia)}`, 'success');
+  showToast(`✅ Saldo inicial configurado — Efectivo: ${formatCOP(efectivo)}, Bancolombia: ${formatCOP(bancolombia)}`, 'success');
   document.getElementById('modal-saldo-inicial').classList.remove('open');
   document.getElementById('fab-saldo-inicial').style.display = 'none';
   renderCaja();
@@ -4749,7 +4734,7 @@ let _comprasPendientePago = null;
 function abrirModalFuenteCompra(id, total, etiqueta, proveedor){
   _comprasPendientePago = { id, total, etiqueta, proveedor };
   document.getElementById('fuente-compra-desc').textContent = `Compra a ${proveedor} — ${formatCOP(total)}`;
-  document.getElementById('fuente-compra-cuenta').value = 'efectivo';
+  document.getElementById('fuente-compra-cuenta').value = 'bancolombia';
   document.getElementById('modal-fuente-compra').classList.add('open');
 }
 
@@ -4875,23 +4860,21 @@ async function guardarContraEdit(){
   const transp = document.getElementById('ce-transp').value;
   const ciudad = document.getElementById('ce-ciudad').value;
 
-  const cuenta = document.getElementById('ce-cuenta')?.value || 'bancolombia';
+  const cuenta = 'bancolombia';
   const payload = {
     estado_contraentrega: estado,
     transportadora: transp,
     ciudad_envio: ciudad,
-    banco: estado === 'liquidado' ? (cuenta === 'nequi' ? 'Nequi' : 'Bancolombia') : null
+    banco: estado === 'liquidado' ? 'Bancolombia' : null
   };
 
-  // Si pasa a Liquidado, sumar a Nequi por defecto
 const { error } = await sb.from('ventas').update(payload).eq('id', _contraEditando);
   if(error){ showToast('❌ Error: ' + error.message, 'error'); return; }
 
   if(estado === 'liquidado'){
-    const cuenta = document.getElementById('ce-cuenta').value;
     const venta = VENTAS.find(x => x.id === _contraEditando);
-    if(venta) await actualizarSaldoCaja(cuenta, venta.total, `Contra entrega — ${venta.cliente_nombre}`);
-    showToast(`✅ Contra entrega liquidada — sumado a ${cuenta}`, 'success');
+    if(venta) await actualizarSaldoCaja('bancolombia', venta.total, `Contra entrega — ${venta.cliente_nombre}`);
+    showToast(`✅ Contra entrega liquidada — sumado a Bancolombia`, 'success');
     // Eliminar de envíos
     _enviosData = _enviosData.filter(x => x.id !== _contraEditando);
     renderEnviosLista();
@@ -4972,7 +4955,7 @@ function renderPendientes(){
   const resaltados = getPendientesResaltados();
   lista.innerHTML = PENDIENTES.map(p => {
     const fecha = new Date(p.fecha + 'T00:00:00').toLocaleDateString('es-CO');
-    const fuenteLabel = p.fuente ? (p.fuente === 'efectivo' ? `${ico('cash', 11)} Efectivo` : p.fuente === 'nequi' ? 'nequi' : 'Bancolombia') : `${ico('clock', 11)} A crédito`;
+    const fuenteLabel = p.fuente ? (p.fuente === 'efectivo' ? `${ico('cash', 11)} Efectivo` : 'Bancolombia') : `${ico('clock', 11)} A crédito`;
     const resaltado = typeof p.resaltado === 'boolean' ? p.resaltado : resaltados.has(p.id);
     return `
       <div class="pendiente-row${resaltado ? ' resaltado' : ''}" id="pend-${p.id}" data-monto="${p.monto}" ondblclick="toggleResaltarPendiente('${p.id}')">
@@ -5129,7 +5112,7 @@ function abrirModalAbonoPendiente(id, saldo){
   document.getElementById('abono-pend-monto').value = '';
  console.log('eliminando id:', id, 'pendientes:', PENDIENTES.map(x=>x.id));
     const p = PENDIENTES.find(x => x.id === id);
-  document.getElementById('abono-pend-fuente').value = p?.fuente || 'efectivo';
+  document.getElementById('abono-pend-fuente').value = p?.fuente || 'bancolombia';
   document.getElementById('modal-abono-pendiente').classList.add('open');
 }
 
@@ -5176,9 +5159,8 @@ async function confirmarAbonoPendiente(){
   cerrarModalAbonoPendiente();
   await cargarPendientes();
 }
-async function ajustarSaldoBanco(banco){
-  const inputId = banco === 'nequi' ? 'nequi-nuevo' : 'banco-nuevo';
-  const nuevoSaldo = rawNum(document.getElementById(inputId));
+async function ajustarSaldoBanco(){
+  const nuevoSaldo = rawNum(document.getElementById('banco-nuevo'));
 
   if(nuevoSaldo < 0){
     showToast('⚠️ Ingresa un saldo válido', 'error');
@@ -5186,14 +5168,14 @@ async function ajustarSaldoBanco(banco){
   }
 
   const { error } = await sb.from('caja_saldo')
-    .update({ [banco]: nuevoSaldo, updated_at: new Date().toISOString() })
+    .update({ bancolombia: nuevoSaldo, updated_at: new Date().toISOString() })
     .eq('id', 1);
 
   if(error){ showToast('❌ Error: ' + error.message, 'error'); return; }
 
-  CAJA[banco] = nuevoSaldo;
-  document.getElementById(inputId).value = '';
-  showToast(`✅ Saldo de ${banco} actualizado: ${formatCOP(nuevoSaldo)}`, 'success');
+  CAJA.bancolombia = nuevoSaldo;
+  document.getElementById('banco-nuevo').value = '';
+  showToast(`✅ Saldo de Bancolombia actualizado: ${formatCOP(nuevoSaldo)}`, 'success');
   await renderCaja();
 }
 /* ============================================================
@@ -5633,7 +5615,7 @@ function editarPendiente(id){
 
   document.getElementById('pe-descripcion').value = p.descripcion;
   document.getElementById('pe-monto').value = p.monto.toLocaleString('es-CO');
-  document.getElementById('pe-fuente').value = p.fuente || 'efectivo';
+  document.getElementById('pe-fuente').value = p.fuente || 'bancolombia';
   _pendienteEditando = id;
   document.getElementById('modal-pendiente').classList.add('open');
   document.querySelector('#modal-pendiente .btn-primary').innerHTML = ico('save', 13) + ' Guardar Cambios';
@@ -6018,7 +6000,7 @@ async function actualizarCuadreGlobal(){
   const totalContras = (contras||[]).reduce((a,v)=>a+v.total,0);
 
   const deberiasTener = saldonInicial + utilidad - totalPendientes - totalContras;
-  const tienesAhora = (CAJA?.efectivo||0) + (CAJA?.nequi||0) + (CAJA?.bancolombia||0);
+  const tienesAhora = (CAJA?.efectivo||0) + (CAJA?.bancolombia||0);
   const diferencia = tienesAhora - deberiasTener;
 
   if(Math.abs(diferencia) === 0) renderCuadre('cuadra', 0);
@@ -6052,6 +6034,10 @@ function abrirModalSimulador(){
   _simItems = [];
   _simSeq = 0;
   document.getElementById('sim-cliente').value = '';
+  const domEl = document.getElementById('sim-domicilio');
+  if(domEl) domEl.value = '';
+  const domRow = document.getElementById('sim-domicilio-row');
+  if(domRow) domRow.style.display = 'none';
   agregarItemSim();
   document.getElementById('modal-simulador').classList.add('open');
 }
@@ -6066,6 +6052,44 @@ function agregarItemSim(){
   renderItemsSim();
 }
 
+function agregarItemSimLibre(){
+  const id = 'sim-item-' + (++_simSeq);
+  _simItems.push({ id, ref:'', libre:true, nombre:'', precio:0, stock:0, cantidad:1, icon:'📦', foto_url:null });
+  renderItemsSim();
+}
+
+function cambiarNombreSimLibre(id, valor){
+  const item = _simItems.find(it => it.id === id);
+  if(item) item.nombre = valor.trim();
+}
+
+/** Foto temporal por producto en el simulador: solo se usa en esa factura y se descarta al cerrar */
+function cargarFotoItemSim(id, event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    const img = new Image();
+    img.onload = function(){
+      const MAX = 480;
+      let w = img.width, h = img.height;
+      if(w > MAX || h > MAX){
+        const s = Math.min(MAX / w, MAX / h);
+        w = Math.round(w * s); h = Math.round(h * s);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const item = _simItems.find(it => it.id === id);
+      if(!item) return;
+      item.foto_sim = canvas.toDataURL('image/jpeg', 0.85);
+      renderItemsSim();
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
 function eliminarItemSim(id){
   _simItems = _simItems.filter(it => it.id !== id);
   if(_simItems.length === 0) agregarItemSim();
@@ -6075,21 +6099,60 @@ function eliminarItemSim(id){
 function renderItemsSim(){
   const cont = document.getElementById('sim-items-list');
   cont.innerHTML = _simItems.map(it => `
-    <div data-id="${it.id}" style="background:var(--gris-10);border-radius:10px;padding:10px;margin-bottom:8px;">
-      <div class="autocomplete-wrap" style="margin-bottom:6px;">
-        <input class="form-input" placeholder="Buscar producto..." value="${it.nombre}"
-               oninput="buscarProductoSim('${it.id}', this.value)" autocomplete="off">
-        <div class="autocomplete-list" id="sim-ac-${it.id}"></div>
-        ${it.ref ? `<span class="form-hint">${it.foto_url ? `<img src="${it.foto_url}" style="width:20px;height:20px;border-radius:4px;object-fit:cover;vertical-align:middle;">` : it.icon} ${it.nombre} — Stock: <strong style="color:${it.stock > 0 ? 'var(--verde)' : 'var(--rojo)'};">${it.stock}</strong></span>` : ''}
+    <div class="pi-card" data-id="${it.id}">
+      <button type="button" class="pi-remove" title="Quitar producto" onclick="eliminarItemSim('${it.id}')">✕</button>
+      <div class="pi-head">
+        <div class="autocomplete-wrap">
+          ${it.libre
+            ? `<input class="form-input" placeholder="Nombre del producto personalizado..." value="${it.nombre}"
+                 oninput="cambiarNombreSimLibre('${it.id}', this.value)" autocomplete="off">
+               ${it.nombre ? `<span class="form-hint">${ico('box', 11)} Producto personalizado — solo se usa en esta factura</span>` : ''}`
+            : `<input class="form-input" placeholder="Buscar producto (nombre o ref)..." value="${it.nombre}"
+                 oninput="buscarProductoSim('${it.id}', this.value)" autocomplete="off">
+               <div class="autocomplete-list" id="sim-ac-${it.id}"></div>
+               ${it.ref ? `<span class="form-hint">${ico('box', 11)} ${it.nombre} — Stock: <strong style="color:${it.stock > 0 ? 'var(--verde)' : 'var(--rojo)'};">${it.stock}</strong></span>` : ''}`}
+        </div>
+        <div class="pi-thumb" onclick="document.getElementById('sim-foto-${it.id}').click()" title="Click para poner foto a este producto (solo se usa en esta factura)">
+          ${it.foto_sim
+            ? `<img src="${it.foto_sim}" alt="">`
+            : it.foto_url
+              ? `<img src="${it.foto_url}" alt="">`
+              : `<div class="pi-thumb-icon">${proIcon(it.icon, 30)}</div>`}
+          <span class="pi-thumb-cam">📷</span>
+        </div>
+        <input type="file" id="sim-foto-${it.id}" accept="image/*" style="display:none;" onchange="cargarFotoItemSim('${it.id}', event)">
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;align-items:end;">
-        <div><div class="form-label">Cant.</div><input class="form-input" type="number" min="1" value="${it.cantidad}" oninput="cambiarCantidadSim('${it.id}', this.value)"></div>
-        <div><div class="form-label">Precio</div><input class="form-input" type="text" value="${it.precio ? it.precio.toLocaleString('es-CO') : ''}" oninput="cambiarPrecioSim('${it.id}', this.value)"></div>
-        <div><div class="form-label">Subtotal</div><input class="form-input" readonly value="${formatCOP(it.precio * it.cantidad)}" style="background:var(--surface-2);color:var(--gris-60);"></div>
-        <button type="button" class="multi-item-remove" onclick="eliminarItemSim('${it.id}')">✕</button>
+      <div class="pi-grid">
+        <div>
+          <label>Cantidad</label>
+          <div class="stepper">
+            <button type="button" onclick="stepperSim('${it.id}', -1)">−</button>
+            <input type="number" min="1" value="${it.cantidad ?? 1}" onchange="cambiarCantidadSim('${it.id}', this.value)">
+            <button type="button" onclick="stepperSim('${it.id}', 1)">+</button>
+          </div>
+        </div>
+        <div>
+          <label>Precio</label>
+          <input class="form-input" type="text" value="${it.precio ? it.precio.toLocaleString('es-CO') : ''}" placeholder="0" oninput="cambiarPrecioSim('${it.id}', this.value)">
+        </div>
+        <div>
+          <label>Subtotal</label>
+          <div class="pi-sub" id="sim-sub-${it.id}">${formatCOP(it.precio * it.cantidad)}</div>
+        </div>
       </div>
     </div>
   `).join('');
+  calcTotalSim();
+}
+
+function stepperSim(id, delta){
+  const item = _simItems.find(it => it.id === id);
+  if(!item) return;
+  item.cantidad = Math.max(1, (item.cantidad || 1) + delta);
+  const input = document.querySelector(`#sim-items-list [data-id="${id}"] .stepper input`);
+  if(input) input.value = item.cantidad;
+  const subEl = document.getElementById('sim-sub-' + id);
+  if(subEl) subEl.textContent = formatCOP(item.precio * item.cantidad);
   calcTotalSim();
 }
 
@@ -6131,23 +6194,36 @@ function seleccionarProductoSim(id, productoId){
 function cambiarCantidadSim(id, valor){
   const item = _simItems.find(it => it.id === id);
   item.cantidad = Math.max(1, parseInt(valor) || 1);
-  const row = document.querySelector(`#sim-items-list [data-id="${id}"]`);
-  row.querySelector('input[readonly]').value = formatCOP(item.precio * item.cantidad);
+  const subEl = document.getElementById('sim-sub-' + id);
+  if(subEl) subEl.textContent = formatCOP(item.precio * item.cantidad);
   calcTotalSim();
 }
 
 function cambiarPrecioSim(id, valor){
   const item = _simItems.find(it => it.id === id);
   item.precio = rawNum({value: valor});
-  const row = document.querySelector(`#sim-items-list [data-id="${id}"]`);
-  row.querySelector('input[readonly]').value = formatCOP(item.precio * item.cantidad);
+  const subEl = document.getElementById('sim-sub-' + id);
+  if(subEl) subEl.textContent = formatCOP(item.precio * item.cantidad);
+  calcTotalSim();
+}
+
+function cambiarDomicilioSim(){
   calcTotalSim();
 }
 
 function calcTotalSim(){
-  const total = _simItems.reduce((acc, it) => acc + (it.precio * it.cantidad), 0);
-  document.getElementById('sim-subtotal').textContent = formatCOP(total);
-  document.getElementById('sim-total').textContent = formatCOP(total);
+  const subtotal = _simItems.reduce((acc, it) => acc + (it.precio * it.cantidad), 0);
+  const dom = rawNum(document.getElementById('sim-domicilio'));
+  const total = subtotal + dom;
+
+  const subEl = document.getElementById('sim-subtotal');
+  if(subEl) subEl.textContent = formatCOP(subtotal);
+  const domVal = document.getElementById('sim-domicilio-valor');
+  if(domVal) domVal.textContent = '+' + formatCOP(dom);
+  const domRow = document.getElementById('sim-domicilio-row');
+  if(domRow) domRow.style.display = dom > 0 ? 'flex' : 'none';
+  const totalEl = document.getElementById('sim-total');
+  if(totalEl) totalEl.textContent = formatCOP(total);
 }
 
 
@@ -6161,26 +6237,32 @@ function eliminarSimulacion(id){
 
 async function generarFacturaSimulada(){
   const cliente = document.getElementById('sim-cliente').value.trim() || 'Cliente';
-  const itemsValidos = _simItems.filter(it => it.ref);
+  const itemsValidos = _simItems.filter(it => it.ref || (it.libre && it.nombre.trim()));
   if(!itemsValidos.length){
     showToast('⚠️ Agrega al menos un producto', 'error');
     return;
   }
 
-  const total = itemsValidos.reduce((acc, it) => acc + (it.precio * it.cantidad), 0);
+  const items = itemsValidos.map(it => ({
+    nombre: it.nombre,
+    cantidad: it.cantidad,
+    precio: it.precio,
+    subtotal: it.precio * it.cantidad,
+    foto_url: it.foto_sim || it.foto_url || null,
+    icon: it.icon
+  }));
+
+  const dom = rawNum(document.getElementById('sim-domicilio'));
+  if(dom > 0){
+    items.push({ nombre: 'Domicilio', cantidad: 1, precio: dom, subtotal: dom, foto_url: null, icon: null, domicilio: true });
+  }
+  const total = items.reduce((acc, it) => acc + it.subtotal, 0);
 
   await sb.from('cotizaciones_clientes').insert({
     cliente_nombre: cliente,
     total,
     fecha: new Date().toISOString().split('T')[0],
-    items: itemsValidos.map(it => ({
-      nombre: it.nombre,
-      cantidad: it.cantidad,
-      precio: it.precio,
-      subtotal: it.precio * it.cantidad,
-      foto_url: it.foto_url || null,
-      icon: it.icon
-    }))
+    items
   });
 
   cerrarModalSimulador();
@@ -6207,9 +6289,11 @@ async function cargarSimulaciones(){
   lista.innerHTML = data.map(s => {
     const simId = 'sim-' + s.id;
     const items = s.items || [];
+    const domItem = items.find(esItemDomicilio) || null;
+    const itemsReales = items.filter(it => !esItemDomicilio(it));
     const fechaCorta = new Date(s.fecha + 'T00:00:00').toLocaleDateString('es-CO');
 
-    const itemsResumen = items.map(it => `
+    const itemsResumen = itemsReales.map(it => `
       <div class="venta-item-row">
         <div class="venta-item-thumb">${it.foto_url ? `<img src="${it.foto_url}" style="width:30px;height:30px;border-radius:7px;object-fit:cover;">` : proIcon(it.icon, 14)}</div>
         <div class="venta-item-info">${it.nombre} x${it.cantidad}</div>
@@ -6217,11 +6301,19 @@ async function cargarSimulaciones(){
       </div>
     `).join('');
 
+    const domLine = domItem
+      ? `<div class="venta-item-row" style="background:#FFF3D6;border:1px solid #F5C542;border-radius:10px;margin-top:6px;">
+           <div class="venta-item-thumb" style="font-size:13px;">🚚</div>
+           <div class="venta-item-info" style="font-weight:800;color:#8A5B00;">Domicilio</div>
+           <div class="venta-item-total" style="font-weight:800;color:#8A5B00;">+ ${formatCOP(domItem.subtotal)}</div>
+         </div>`
+      : '';
+
     return `
       <div class="venta-grupo cotiz-row" id="${simId}">
        <div class="venta-grupo-head" onclick="toggleVentaDetalle(this)">
           <div class="venta-cliente">
-           <span style="background:var(--gris-20);color:var(--gris-80);font-size:10px;font-weight:800;padding:4px 10px;border-radius:8px;white-space:nowrap;">${items.length} producto${items.length > 1 ? 's' : ''}</span>
+           <span style="background:var(--gris-20);color:var(--gris-80);font-size:10px;font-weight:800;padding:4px 10px;border-radius:8px;white-space:nowrap;">${itemsReales.length} producto${itemsReales.length > 1 ? 's' : ''}</span>
             <div class="venta-cliente-nombre">Cotización — ${s.cliente_nombre}</div>
           </div>
           <div class="venta-grupo-meta">
@@ -6236,10 +6328,15 @@ async function cargarSimulaciones(){
             <span class="venta-chev">▼</span>
           </div>
         </div>
-        <div class="venta-detalle collapsed">${itemsResumen}</div>
+        <div class="venta-detalle collapsed">${itemsResumen}${domLine}</div>
       </div>
     `;
   }).join('');
+}
+
+/** Detecta el ítem Domicilio (nuevo: marcado, o viejo: nombre "Domicilio" sin foto ni ref) */
+function esItemDomicilio(it){
+  return it.domicilio === true || (it.nombre === 'Domicilio' && !it.foto_url && !it.ref);
 }
 
 async function verFacturaSimDB(id){
@@ -6254,16 +6351,18 @@ async function verFacturaSimDB(id){
 
   abrirModalFacturaCargando();
   try{
+    const domItem = items.find(esItemDomicilio) || null;
+    const itemsReales = items.filter(it => !esItemDomicilio(it));
     const pdfBlob = await construirFacturaPDF({
       titulo: 'Cotización de Factura',
       fecha, cliente: s.cliente_nombre || 'Sin definir', telefono: '',
       metodoPago: '', numero: numeroFactura(s.id),
-      items: items.map(it => ({
+      items: itemsReales.map(it => ({
         nombre: it.nombre, cantidad: it.cantidad,
         precio: it.precio, subtotal: it.subtotal,
         foto: it.foto_url || null
       })),
-      descuento: 0, total: s.total
+      descuento: 0, domicilio: domItem ? domItem.subtotal : 0, total: s.total
     });
 
     mostrarFacturaPDF(pdfBlob, nombreArchivo);
