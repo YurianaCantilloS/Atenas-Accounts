@@ -63,7 +63,11 @@ async function subirACloudinary(archivo) {
       method: 'POST',
       body: formData
     });
-    if (!respuesta.ok) throw new Error('Error al subir la imagen');
+    if (!respuesta.ok){
+      let detalle = '';
+      try{ const j = await respuesta.json(); detalle = j.error?.message || j.message || ''; }catch(e){}
+      throw new Error('Error al subir la imagen' + (detalle ? ': ' + detalle : ''));
+    }
     const datos = await respuesta.json();
     return datos.secure_url;
   } catch (error) {
@@ -1829,14 +1833,191 @@ let PRODUCTOS = []; // cache local de productos cargados desde Supabase
 
 /** Carga todos los productos desde Supabase y los guarda en PRODUCTOS */
 async function cargarProductos(){
-  const { data, error } = await sb.from('productos').select('*').eq('origen', 'propio').order('referencia');
+  const { data, error } = await sb.from('productos').select('*').eq('origen', 'propio');
   if(error){
     showToast('❌ Error cargando productos: ' + error.message, 'error');
     return;
   }
   PRODUCTOS = data;
+  ordenarProductos();
   renderInventario();
 }
+
+/* ── Orden personalizado de productos (arrastrar en inventario) ───────────── */
+const _ordenLocalKey = 'atenas_orden_productos';
+
+function _ordenLocal(){
+  try{
+    const v = JSON.parse(localStorage.getItem(_ordenLocalKey) || 'null');
+    return Array.isArray(v) ? v : null;
+  }catch(e){ return null; }
+}
+
+function ordenProducto(p){
+  if(typeof p.orden === 'number' && p.orden > 0) return p.orden;
+  const loc = _ordenLocal();
+  if(loc){ const i = loc.indexOf(p.id); if(i >= 0) return i + 1; }
+  return 1e9;
+}
+
+function ordenarProductos(){
+  PRODUCTOS.sort((a, b) => {
+    const oa = ordenProducto(a), ob = ordenProducto(b);
+    if(oa !== ob) return oa - ob;
+    return (a.nombre || '').localeCompare(b.nombre || '');
+  });
+}
+
+/** Persiste el nuevo orden en BD (columna orden) y, si falta la columna,
+    en este dispositivo (localStorage) para que funcione igual. */
+async function persistirOrden(ids){
+  if(!ids || ids.length === 0) return;
+  const local = () => localStorage.setItem(_ordenLocalKey, JSON.stringify(ids));
+  try{
+    const res = await Promise.all(ids.map((id, idx) =>
+      sb.from('productos').update({ orden: idx + 1 }).eq('id', id)
+    ));
+    const err = res.find(r => r.error);
+    if(err){
+      if(/orden/.test(err.error.message || '')){
+        local();
+        return 'local';
+      }
+      throw err.error;
+    }
+    localStorage.removeItem(_ordenLocalKey);
+    return 'db';
+  }catch(e){
+    local();
+    return 'local';
+  }
+}
+
+async function aplicarOrden(ids){
+  const mapa = new Map();
+  ids.forEach((id, idx) => mapa.set(id, idx + 1));
+  let cambio = false;
+  PRODUCTOS.forEach(p => {
+    const ord = mapa.get(p.id);
+    if(ord && p.orden !== ord){ p.orden = ord; cambio = true; }
+  });
+  if(!cambio){ showToast('📌 Arrastra un producto con la pestaña ≡ para reordenar', 'info'); return; }
+  ordenarProductos();
+  renderInventario();
+  const donde = await persistirOrden(ids);
+  if(donde === 'local'){
+    showToast('⚠️ Orden guardado en este dispositivo: falta ejecutar la migración SQL en Supabase', 'info');
+  } else {
+    showToast('✅ Orden actualizado', 'info');
+  }
+}
+
+/* Arrastrar para reordenar (funciona con mouse y con el dedo en celular) */
+const GRIP_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="5" r="1.8"/><circle cx="15" cy="5" r="1.8"/><circle cx="9" cy="12" r="1.8"/><circle cx="15" cy="12" r="1.8"/><circle cx="9" cy="19" r="1.8"/><circle cx="15" cy="19" r="1.8"/></svg>';
+let _dnd = { el: null, ghost: null, x: 0, y: 0, gx: 0, gy: 0, activo: false };
+
+function _crearGhost(el){
+  const g = el.cloneNode(true);
+  g.classList.add('arrastrando-fantasma');
+  let ghostTarget;
+  if(el.tagName === 'TR'){
+    ghostTarget = document.createElement('table');
+    ghostTarget.className = 'arrastrando-fantasma';
+    ghostTarget.appendChild(g);
+  } else {
+    ghostTarget = g;
+  }
+  document.body.appendChild(ghostTarget);
+  const r = el.getBoundingClientRect();
+  ghostTarget.style.width = r.width + 'px';
+  _dnd.ghost = ghostTarget;
+  _dnd.gx = r.width / 2;
+  _dnd.gy = 14;
+  _dnd.ghost.style.transform = `translate(${r.left + 30}px, ${r.top - 14}px)`;
+}
+
+function _limpiarGhost(){
+  if(_dnd.ghost){ _dnd.ghost.remove(); _dnd.ghost = null; }
+}
+
+function _cancelarArrastre(){
+  if(_dnd.el) _dnd.el.style.opacity = '';
+  _limpiarGhost();
+  _dnd.el = null; _dnd.activo = false;
+}
+
+function _objetivoCercano(x, y){
+  const cont = _dnd.el.parentElement;
+  const items = Array.from(cont.children).filter(c => c !== _dnd.el && c.dataset && c.dataset.pid);
+  let target = null;
+  for(const it of items){
+    const r = it.getBoundingClientRect();
+    if(x >= r.left && x <= r.right && y >= r.top - 4 && y <= r.bottom + 4){ target = it; break; }
+  }
+  if(!target){
+    let best = null, bestD = Infinity;
+    for(const it of items){
+      const r = it.getBoundingClientRect();
+      const d = Math.abs(y - (r.top + r.height / 2));
+      if(d < bestD){ bestD = d; best = it; }
+    }
+    target = best;
+  }
+  return target;
+}
+
+function _moverVivo(x, y){
+  const target = _objetivoCercano(x, y);
+  if(!target) return;
+  const r = target.getBoundingClientRect();
+  const antes = y < r.top + r.height / 2;
+  if(antes){
+    target.parentElement.insertBefore(_dnd.el, target);
+  } else {
+    target.parentElement.insertBefore(_dnd.el, target.nextElementSibling);
+  }
+}
+
+document.addEventListener('pointerdown', e => {
+  const grip = e.target.closest('.grip-pro');
+  if(!grip) return;
+  const el = grip.closest('.inv-card, tr, .inv-mov-row');
+  if(!el || !el.dataset.pid) return;
+  _dnd.el = el;
+  _dnd.x = e.clientX; _dnd.y = e.clientY;
+  _dnd.activo = false;
+  try{ grip.setPointerCapture(e.pointerId); }catch(err){}
+});
+
+document.addEventListener('pointermove', e => {
+  if(!_dnd.el) return;
+  const dx = e.clientX - _dnd.x, dy = e.clientY - _dnd.y;
+  if(!_dnd.activo && Math.hypot(dx, dy) > 7){
+    _dnd.activo = true;
+    _crearGhost(_dnd.el);
+    _dnd.el.style.opacity = '0.35';
+  }
+  if(_dnd.activo){
+    e.preventDefault();
+    const g = _dnd.ghost;
+    if(g) g.style.transform = `translate(${e.clientX - _dnd.gx}px, ${e.clientY - _dnd.gy}px)`;
+    _moverVivo(e.clientX, e.clientY);
+  }
+});
+
+document.addEventListener('pointerup', e => {
+  if(!_dnd.el) return;
+  if(!_dnd.activo){ _cancelarArrastre(); return; }
+  _moverVivo(e.clientX, e.clientY);
+  _dnd.el.style.opacity = '';
+  const cont = _dnd.el.parentElement;
+  const ids = Array.from(cont.querySelectorAll('[data-pid]')).map(el => el.dataset.pid);
+  _limpiarGhost();
+  _dnd.el = null; _dnd.activo = false;
+  aplicarOrden(ids);
+});
+
+document.addEventListener('pointercancel', () => _cancelarArrastre());
 
 /** Genera la siguiente referencia disponible (ATS-001, ATS-002...) */
 function siguienteReferencia(){
@@ -1942,7 +2123,7 @@ function renderInventario(){
         ? `<img src="${p.foto_url}" style="width:56px;height:56px;border-radius:10px;object-fit:cover;">`
         : `<div class="prod-thumb prod-thumb-lg">${proIcon(p.icono, 24)}</div>`;
       return `
-        <tr>
+        <tr data-pid="${p.id}">
           <td style="white-space:nowrap;width:1%;">
             <div class="prod-cell">
               ${thumb}
@@ -1953,7 +2134,9 @@ function renderInventario(){
           <td style="text-align:right;">${formatCOP(p.costo)}</td>
           <td style="text-align:right;font-weight:700;">${formatCOP(p.precio)}</td>
           <td style="text-align:center;" class="${claseMargen(pct)}">${pct.toFixed(1)}%</td>
-          <td style="text-align:center;"><button class="btn-icon" onclick="editarProducto('${p.id}')" title="Editar">
+          <td style="text-align:center;">
+<button type="button" class="btn-icon grip-pro" title="Arrastrar para reordenar">${GRIP_ICON}</button>
+<button class="btn-icon" onclick="editarProducto('${p.id}')" title="Editar">
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
 </button>
 <button class="btn-icon" onclick="eliminarProducto('${p.id}')" title="Eliminar" style="color:var(--rojo);">
@@ -1969,12 +2152,13 @@ function renderInventario(){
         ? `<img src="${p.foto_url}" style="width:64px;height:64px;border-radius:12px;object-fit:cover;flex-shrink:0;">`
         : `<div style="width:64px;height:64px;border-radius:12px;background:var(--gris-10);display:flex;align-items:center;justify-content:center;font-size:26px;border:1px solid var(--gris-20);flex-shrink:0;">${proIcon(p.icono, 26)}</div>`;
       return `
-        <div style="padding:12px 14px;border-bottom:1px solid var(--gris-20);display:flex;gap:12px;">
+        <div class="inv-mov-row" data-pid="${p.id}" style="padding:12px 14px;border-bottom:1px solid var(--gris-20);display:flex;gap:12px;">
           ${thumb}
           <div style="flex:1;min-width:0;">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:2px;">
               <div style="font-weight:800;font-size:13px;line-height:1.2;flex:1;min-width:0;">${p.nombre}</div>
               <div style="display:flex;gap:4px;flex-shrink:0;">
+                <button type="button" class="btn-icon grip-pro" title="Arrastrar para reordenar">${GRIP_ICON}</button>
                 <button class="btn-icon" onclick="editarProducto('${p.id}')">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
@@ -2014,21 +2198,11 @@ function renderInventario(){
           ? `<img src="${p.foto_url}" style="width:64px;height:64px;border-radius:12px;object-fit:cover;flex-shrink:0;">`
           : `<div style="width:64px;height:64px;border-radius:12px;background:var(--gris-10);display:flex;align-items:center;justify-content:center;font-size:28px;border:1px solid var(--gris-20);flex-shrink:0;">${proIcon(p.icono, 28)}</div>`;
         return `
-          <div class="inv-card">
+          <div class="inv-card" data-pid="${p.id}">
             <div class="inv-card-head">
               ${thumb}
-              <div style="flex:1;min-width:0;">
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">
-                  <div style="flex:1;min-width:0;"><div class="inv-card-name">${p.nombre}</div></div>
-                  <div class="inv-card-actions">
-                    <button class="btn-icon" onclick="editarProducto('${p.id}')" title="Editar">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                    </button>
-                    <button class="btn-icon" onclick="eliminarProducto('${p.id}')" title="Eliminar" style="color:var(--rojo);">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                    </button>
-                  </div>
-                </div>
+              <div class="inv-card-mid">
+                <div class="inv-card-name">${p.nombre}</div>
                 <span class="prod-ref" style="display:inline-block;">${p.referencia}</span>
               </div>
             </div>
@@ -2049,6 +2223,15 @@ function renderInventario(){
                 <span class="lbl">Margen</span>
                 <strong class="${claseMargen(pct)}">${pct.toFixed(1)}%</strong>
               </div>
+            </div>
+            <div class="inv-card-actions">
+              <button type="button" class="btn-icon grip-pro" title="Arrastrar para reordenar">${GRIP_ICON}</button>
+              <button class="btn-icon" onclick="editarProducto('${p.id}')" title="Editar">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+              <button class="btn-icon" onclick="eliminarProducto('${p.id}')" title="Eliminar" style="color:var(--rojo);">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+              </button>
             </div>
           </div>
         `;
@@ -2123,8 +2306,20 @@ function cerrarModalProducto(){
 }
 
 function resetFotoArea(){
+  _fotoFile = null;
   document.getElementById('foto-area').innerHTML = `
     <label class="photo-drop" for="foto-input">${ico('camera', 14)} Click para subir foto</label>
+    <input type="file" id="foto-input" accept="image/*" style="display:none;" onchange="previewFoto(event)">
+  `;
+}
+
+function renderFotoPreview(src, nombre){
+  document.getElementById('foto-area').innerHTML = `
+    <label class="photo-wrap" for="foto-input" title="Click para cambiar foto">
+      <img src="${src}" class="photo-preview">
+      <span class="photo-edit-hint">${ico('camera', 11)} Click para cambiar foto</span>
+    </label>
+    <div style="text-align:center;font-size:11px;color:var(--gris-60);margin-bottom:6px;">${nombre}</div>
     <input type="file" id="foto-input" accept="image/*" style="display:none;" onchange="previewFoto(event)">
   `;
 }
@@ -2134,18 +2329,9 @@ function previewFoto(event){
   const file = event.target.files[0];
   if(!file) return;
   _fotoFile = file;
-
   const reader = new FileReader();
   reader.onload = function(ev){
-    const area = document.getElementById('foto-area');
-    area.innerHTML = `
-      <label class="photo-wrap" for="foto-input" title="Click para cambiar foto">
-        <img src="${ev.target.result}" class="photo-preview">
-        <span class="photo-edit-hint">${ico('camera', 11)} Click para cambiar foto</span>
-      </label>
-      <div style="text-align:center;font-size:11px;color:var(--gris-60);margin-bottom:6px;">${file.name}</div>
-      <input type="file" id="foto-input" accept="image/*" style="display:none;" onchange="previewFoto(event)">
-    `;
+    renderFotoPreview(ev.target.result, file.name);
   };
   reader.readAsDataURL(file);
 }
@@ -2202,23 +2388,6 @@ function editarProducto(id){
   document.getElementById('modal-prod').classList.add('open');
 }
 
-/** Sube la foto seleccionada al bucket "productos" y devuelve la URL pública */
-async function subirFoto(referencia){
-  if(!_fotoFile) return null;
-
-  const ext = _fotoFile.name.split('.').pop();
-  const fileName = `${referencia}-${Date.now()}.${ext}`;
-
-  const { data, error } = await sb.storage.from('productos').upload(fileName, _fotoFile, { upsert: true });
-  if(error){
-    showToast('⚠️ Error subiendo foto: ' + error.message, 'error');
-    return null;
-  }
-
-  const { data: urlData } = sb.storage.from('productos').getPublicUrl(fileName);
-  return urlData.publicUrl;
-}
-
 /** Guardar producto (crear o actualizar) */
 async function guardarProducto(){
   const referencia = document.getElementById('p-referencia').value;
@@ -2246,7 +2415,8 @@ async function guardarProducto(){
   let fotoUrl = null;
   if(_fotoFile){
     showToast('Subiendo imagen...', 'info');
-    fotoUrl = await subirACloudinary(_fotoFile); // ← CAMBIO AQUÍ: Ahora sube a Cloudinary
+    fotoUrl = await subirACloudinary(_fotoFile);        // subida directa a Cloudinary
+    if(!fotoUrl) showToast('⚠️ No se pudo subir la imagen a Cloudinary', 'error');
   }
 
   // Stock: el campo es la "Cantidad Inicial". El stock actual se ajusta con la misma diferencia.
@@ -2258,14 +2428,31 @@ async function guardarProducto(){
 
   const payload = { referencia, nombre, costo, precio, stock: stockActual, stock_inicial: stockInicial };
   if(fotoUrl) payload.foto_url = fotoUrl;
+  if(!_productoEditando) payload.orden = PRODUCTOS.length + 1;
+
+  /** Si el SQL de migración aún no se ejecutó en Supabase, intenta de nuevo
+      sin las columnas nuevas para que guardar con imagen no falle. */
+  async function guardar(p){
+    if(_productoEditando) return await sb.from('productos').update(p).eq('id', _productoEditando);
+    return await sb.from('productos').insert(p);
+  }
+
+  let res = await guardar(payload);
+  if(res.error && res.error.message && (/stock_inicial|orden/.test(res.error.message))){
+    const p2 = { ...payload };
+    delete p2.stock_inicial; delete p2.orden;
+    res = await guardar(p2);
+    if(res.error){ showToast('❌ Error: ' + res.error.message, 'error'); return; }
+    cerrarModalProducto();
+    await cargarProductos();
+    showToast('⚠️ Guardado sin stock inicial/orden: falta ejecutar la migración SQL en Supabase', 'info');
+    return;
+  }
+  if(res.error){ showToast('❌ Error: ' + res.error.message, 'error'); return; }
 
   if(_productoEditando){
-    const { error } = await sb.from('productos').update(payload).eq('id', _productoEditando);
-    if(error){ showToast('❌ Error: ' + error.message, 'error'); return; }
     showToast(`✅ Producto "${nombre}" actualizado`);
   } else {
-    const { error } = await sb.from('productos').insert(payload);
-    if(error){ showToast('❌ Error: ' + error.message, 'error'); return; }
     showToast(`✅ Producto "${nombre}" agregado correctamente`);
   }
 
@@ -3878,14 +4065,20 @@ const _fxImgMiniCache = new Map();
 async function imagenMini(url){
   if(!url) return '';
   if(_fxImgMiniCache.has(url)) return _fxImgMiniCache.get(url);
-  let resultado = url;
+  /* Si la foto vive en Supabase Storage, descargamos una miniatura servida por su CDN
+     (mucho más rápido que bajar la foto en resolución completa) */
+  let src = url;
+  if(/\/storage\/v1\/object\/public\//.test(url)){
+    src = url + (url.includes('?') ? '&' : '?') + 'width=120&height=120&resize=contain';
+  }
+  let resultado = src;
   try {
     const img = await new Promise((res, rej) => {
       const im = new Image();
       im.crossOrigin = 'anonymous';
       im.onload = () => res(im);
       im.onerror = rej;
-      im.src = url;
+      im.src = src;
     });
     const MAX = 200;
     const w = img.naturalWidth || MAX, h = img.naturalHeight || MAX;
@@ -3966,13 +4159,13 @@ function fxInvoiceStyle(){
   .fx-wave-3{bottom:-2px;height:13px;background:#F9CFE8;opacity:.7;}
 
   /* ---- encabezado ---- */
-  .fx-head{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;}
-  .fx-brand{display:flex;align-items:center;gap:14px;min-width:0;}
+  .fx-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;}
+  .fx-brand{display:flex;align-items:center;gap:12px;min-width:0;flex:1;}
   .fx-brand-txt{display:flex;flex-direction:column;gap:5px;min-width:0;}
-  .fx-brand-name{font-size:21px;font-weight:800;color:var(--fx-rosa);letter-spacing:3px;line-height:1.1;white-space:nowrap;}
-  .fx-brand-sub{font-size:8px;font-weight:700;letter-spacing:4.5px;color:var(--fx-texto2);text-transform:uppercase;}
+  .fx-brand-name{font-size:19px;font-weight:800;color:var(--fx-rosa);letter-spacing:2px;line-height:1.1;white-space:nowrap;}
+  .fx-brand-sub{font-size:8px;font-weight:700;letter-spacing:3.5px;color:var(--fx-texto2);text-transform:uppercase;}
   .fx-logo-box{
-    width:132px;height:132px;flex-shrink:0;border-radius:26px;
+    width:120px;height:120px;flex-shrink:0;border-radius:24px;
     background:rgba(255,255,255,.85);border:1px solid rgba(233,30,131,.18);
     box-shadow:var(--fx-sombra);
     display:flex;align-items:center;justify-content:center;padding:12px;
@@ -3983,14 +4176,15 @@ function fxInvoiceStyle(){
   .fx-comp-badge{
     display:inline-flex;align-items:center;gap:8px;
     background:linear-gradient(135deg,#E91E83,#F22991);color:#fff;
-    font-size:12px;font-weight:700;letter-spacing:2.5px;
-    padding:10px 18px;border-radius:999px;box-shadow:0 8px 20px rgba(233,30,131,.30);
+    font-size:11px;font-weight:700;letter-spacing:2px;
+    padding:9px 15px;border-radius:999px;box-shadow:0 8px 20px rgba(233,30,131,.30);
   }
   .fx-comp-meta{
     display:flex;align-items:center;gap:10px;
     background:rgba(255,255,255,.82);border:1px solid var(--fx-borde);
     border-radius:14px;padding:8px 14px;box-shadow:0 4px 14px rgba(23,32,58,.06);
     backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    max-width:100%;flex-wrap:wrap;justify-content:flex-end;
   }
   .fx-comp-num{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:800;}
   .fx-comp-num .lbl{font-size:8.5px;letter-spacing:2px;color:var(--fx-texto2);font-weight:700;}
@@ -4374,9 +4568,9 @@ async function construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPago
     return { blob: new jsPDF().output('blob'), canvases: [] };
   }
 
-  // En móvil usamos una resolución menor para renderizar mucho más rápido
+  // Resolución de renderizado: menor = mucho más rápido sin notarse en pantalla
   const isMobile = window.innerWidth <= 768;
-  const ESCALA = isMobile ? 1.5 : 2;
+  const ESCALA = isMobile ? 1.2 : 1.6;
 
   showToast('⏳ Generando factura…', 'info');
   const logo = await logoMini();
@@ -4468,10 +4662,16 @@ async function construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPago
     }
 
     const pdf = new jsPDF({orientation: 'portrait', unit: 'mm', format: 'a4'});
-    const datosPagina = {numero, titulo, fecha, cliente, metodoPago, rows, logo, total, descuento: descuento || 0, domicilio: domicilio || 0};
-    const canvases = await Promise.all(layoutPages.map((lp, p) =>
-      renderPaginaFactura(cont, datosPagina, lp.type, String(p + 1), ESCALA)
-    ));
+    const datosBase = {numero, titulo, fecha, cliente, metodoPago, logo, total, descuento: descuento || 0, domicilio: domicilio || 0};
+    /* Cada página debe dibujar SOLO su subconjunto de filas (soluciona los
+       productos duplicados que salían repetidos en cada hoja). Se renderizan de
+       una en una para no saturar memoria y generar más rápido. */
+    const canvases = [];
+    for(const lp of layoutPages){
+      canvases.push(await renderPaginaFactura(
+        cont, {...datosBase, rows: lp.rows.map(ii => rows[ii])}, lp.type, String(canvases.length + 1), ESCALA
+      ));
+    }
     canvases.forEach((canvas, p) => {
       if(p > 0) pdf.addPage();
       pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297);
