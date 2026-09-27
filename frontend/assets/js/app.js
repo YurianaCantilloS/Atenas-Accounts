@@ -242,11 +242,71 @@ function stepDenom(input, valor, delta, contexto){
 }
 
 function toggleResumen(){
-  document.getElementById('resumen-panel').classList.toggle('open');
-  const cp = document.getElementById('chat-panel');
-  if(cp) cp.classList.remove('open');
-  const launcher = document.querySelector('.chat-launcher');
-  if(launcher) launcher.classList.remove('hidden');
+  const abierto = document.getElementById('resumen-panel').classList.toggle('open');
+  if(abierto) document.getElementById('calc-panel').classList.remove('open');
+}
+
+/* ── CALCULADORA DE PRECIOS ──────────────────────────────────── */
+function toggleCalcPrecio(abrir){
+  const panel = document.getElementById('calc-panel');
+  const abierto = abrir !== undefined ? abrir : !panel.classList.contains('open');
+  if(abierto){
+    document.getElementById('resumen-panel').classList.remove('open');
+    setTimeout(() => {
+      const c = document.getElementById('calc-costo');
+      if(c && c.value.trim() === '') c.focus();
+    }, 90);
+  } else {
+    document.getElementById('calc-costo').value = '';
+    document.getElementById('calc-precio').value = '';
+    document.getElementById('calc-minimo').textContent = '—';
+    document.getElementById('calc-optimo').textContent = '—';
+    document.getElementById('calc-resultado').innerHTML = '';
+    localStorage.removeItem('calc_costo');
+    localStorage.removeItem('calc_precio');
+  }
+  panel.classList.toggle('open', abierto);
+}
+
+function calcPrecio(){
+  const costo = rawNum(document.getElementById('calc-costo'));
+  const minEl  = document.getElementById('calc-minimo');
+  const optEl  = document.getElementById('calc-optimo');
+  const resEl  = document.getElementById('calc-resultado');
+  if(costo > 0){
+    minEl.textContent = formatCOP(Math.round(costo * 1.5));
+    optEl.textContent = formatCOP(Math.round(costo * 1.7));
+  } else {
+    minEl.textContent = '—';
+    optEl.textContent = '—';
+    resEl.innerHTML = '';
+    return;
+  }
+  const precio = rawNum(document.getElementById('calc-precio'));
+  if(precio > 0){
+    const pct = (precio - costo) / costo * 100;
+    let cls, txt;
+    if(pct >= 70){ cls = 'calc-opt'; txt = '🎯 Óptimo (70% o más)'; }
+    else if(pct >= 50){ cls = 'calc-ok'; txt = '✓ Mínimo recomendado (50–70%)'; }
+    else { cls = 'calc-bad'; txt = '❌ Menor al mínimo (50%)'; }
+    resEl.innerHTML = `<div class="calc-est ${cls}" style="margin-top:12px;"><span>Tu margen</span><strong>${pct.toFixed(1)}%</strong></div><div class="calc-est ${cls}">${txt}</div>`;
+  } else {
+    resEl.innerHTML = '';
+  }
+}
+
+function usarPrecioOptimo(){
+  const costoEl = document.getElementById('calc-costo');
+  const costo = rawNum(costoEl);
+  if(costo <= 0){
+    showToast('⚠️ Primero ingresa el costo', 'error');
+    costoEl.focus();
+    return;
+  }
+  const precio = Math.round(costo * 1.7);
+  document.getElementById('calc-precio').value = precio;
+  calcPrecio();
+  showToast('✅ Precio óptimo aplicado', 'success');
 }
 
 /** Guardar nuevo saldo de banco (demo visual) */
@@ -1903,7 +1963,6 @@ async function aplicarOrden(ids){
   });
   if(!cambio){ showToast('📌 Arrastra un producto con la pestaña ≡ para reordenar', 'info'); return; }
   ordenarProductos();
-  renderInventario();
   const donde = await persistirOrden(ids);
   if(donde === 'local'){
     showToast('⚠️ Orden guardado en este dispositivo: falta ejecutar la migración SQL en Supabase', 'info');
@@ -1915,6 +1974,29 @@ async function aplicarOrden(ids){
 /* Arrastrar para reordenar (funciona con mouse y con el dedo en celular) */
 const GRIP_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="5" r="1.8"/><circle cx="15" cy="5" r="1.8"/><circle cx="9" cy="12" r="1.8"/><circle cx="15" cy="12" r="1.8"/><circle cx="9" cy="19" r="1.8"/><circle cx="15" cy="19" r="1.8"/></svg>';
 let _dnd = { el: null, ghost: null, x: 0, y: 0, gx: 0, gy: 0, activo: false };
+
+let _ordenActivo = localStorage.getItem('atenas_orden_activo') !== '0';
+
+function _renderLockToggle(){
+  const btn = document.getElementById('inv-lock-btn');
+  if(!btn) return;
+  const open = _ordenActivo;
+  btn.classList.toggle('abierto', open);
+  const ico = open
+    ? '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>'
+    : '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+  btn.innerHTML = ico + '<span>' + (open ? ' Ordenar' : ' Bloqueado') + '</span>';
+  btn.title = open ? 'Desactivar reordenar' : 'Activar reordenar';
+  const v = document.getElementById('view-inventario');
+  if(v) v.classList.toggle('orden-bloqueado', !open);
+}
+
+function toggleOrden(){
+  _ordenActivo = !_ordenActivo;
+  localStorage.setItem('atenas_orden_activo', _ordenActivo ? '1' : '0');
+  _renderLockToggle();
+  showToast(_ordenActivo ? '🔓 Reordenar activado' : '🔒 Reordenar desactivado', 'info');
+}
 
 function _crearGhost(el){
   const g = el.cloneNode(true);
@@ -1971,14 +2053,32 @@ function _moverVivo(x, y){
   if(!target) return;
   const r = target.getBoundingClientRect();
   const antes = y < r.top + r.height / 2;
+  const e = _dnd.el;
+  const r0 = e.getBoundingClientRect();
   if(antes){
-    target.parentElement.insertBefore(_dnd.el, target);
+    target.parentElement.insertBefore(e, target);
   } else {
-    target.parentElement.insertBefore(_dnd.el, target.nextElementSibling);
+    target.parentElement.insertBefore(e, target.nextElementSibling);
   }
+  _animarDesplazamiento(e, r0);
+}
+
+function _animarDesplazamiento(e, r0){
+  const r1 = e.getBoundingClientRect();
+  const dx = r0.left - r1.left, dy = r0.top - r1.top;
+  if(Math.abs(dx) < 2 && Math.abs(dy) < 2) return;
+  e.style.transition = 'none';
+  e.style.transform = `translate(${dx}px, ${dy}px)`;
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      e.style.transition = 'transform .18s ease';
+      e.style.transform = '';
+    });
+  });
 }
 
 document.addEventListener('pointerdown', e => {
+  if(!_ordenActivo) return;
   const grip = e.target.closest('.grip-pro');
   if(!grip) return;
   const el = grip.closest('.inv-card, tr, .inv-mov-row');
@@ -2037,7 +2137,7 @@ function siguienteReferencia(){
        .forEach(f => { try{ document.fonts.load(f); }catch(e){} });
    }
    await cargarProductos(); // primero siempre
-   actualizarSugerenciasChat();
+   _renderLockToggle();
    restaurarVistaGuardada(); // al refrescar se queda en la página donde estaba
   const { data: config } = await sb.from('configuracion').select('*').eq('id', 1).single();
   if(config && config.meta_ventas_mes) _metaVentas = config.meta_ventas_mes;
@@ -2130,7 +2230,7 @@ function renderInventario(){
               <div><div class="prod-name">${p.nombre}</div><span class="prod-ref">${p.referencia}</span></div>
             </div>
           </td>
-          <td style="text-align:center;"><span class="badge ${claseStock(p.stock)}" style="font-size:12px;font-weight:900;padding:2px 10px;">${p.stock}</span></td>
+          <td style="text-align:center;"><span class="badge ${claseStock(p.stock)}" style="font-size:13px;font-weight:900;padding:2px 10px;">${p.stock}</span></td>
           <td style="text-align:right;">${formatCOP(p.costo)}</td>
           <td style="text-align:right;font-weight:700;">${formatCOP(p.precio)}</td>
           <td style="text-align:center;" class="${claseMargen(pct)}">${pct.toFixed(1)}%</td>
@@ -2171,7 +2271,7 @@ function renderInventario(){
             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;text-align:center;font-size:10px;margin-top:8px;">
               <div>
                 <div style="color:var(--gris-60);">Stock</div>
-                <div><span class="badge ${claseStock(p.stock)}" style="font-size:10px;padding:1px 6px;">${p.stock}</span></div>
+                <div><span class="badge ${claseStock(p.stock)}" style="font-size:12px;padding:2px 8px;">${p.stock}</span></div>
               </div>
               <div>
                 <div style="color:var(--gris-60);">Costo</div>
@@ -2209,7 +2309,7 @@ function renderInventario(){
             <div class="inv-card-stats">
               <div class="inv-stat">
                 <span class="lbl">Stock</span>
-                <span class="badge ${claseStock(p.stock)}" style="font-size:11px;">${p.stock}</span>
+                <span class="badge ${claseStock(p.stock)}" style="font-size:16px;font-weight:900;padding:3px 12px;align-self:flex-start;">${p.stock}</span>
               </div>
               <div class="inv-stat">
                 <span class="lbl">Costo</span>
@@ -2543,18 +2643,30 @@ function renderClientes(){
     lista.innerHTML = `<div style="padding:20px;text-align:center;color:var(--gris-60);font-size:13px;">Aún no has agregado clientes.</div>`;
     return;
   }
-  lista.innerHTML = CLIENTES.map(c => `
-    <div class="contacto-row" id="cli-${c.id}">
-      <div class="contacto-info">
-        <strong>${c.nombre}${c.apellido && c.apellido !== 'null' ? ' ' + c.apellido : ''}</strong>
-        <span class="contacto-sub">${c.ciudad || '—'} · ${c.direccion || '—'} · 📞 ${c.numero || '—'}</span>
+  lista.innerHTML = `<div class="inv-cards-grid">` + CLIENTES.map(c => {
+    const nombre = `${c.nombre}${c.apellido && c.apellido !== 'null' ? ' ' + c.apellido : ''}`;
+    const inits = nombre.trim().split(/\s+/).slice(0,2).map(p=>p[0]).join('').toUpperCase() || '?';
+    return `
+      <div class="inv-card" id="cli-${c.id}">
+        <div class="inv-card-head">
+          <div class="cont-avatar">${inits}</div>
+          <div class="inv-card-mid">
+            <div class="inv-card-name">${nombre}</div>
+            <span class="cont-card-sub">${c.ciudad || '—'}</span>
+          </div>
+        </div>
+        <div class="inv-card-stats">
+          <div class="inv-stat"><span class="lbl">Ciudad</span><strong>${c.ciudad || '—'}</strong></div>
+          <div class="inv-stat"><span class="lbl">Dirección</span><strong>${c.direccion || '—'}</strong></div>
+          <div class="inv-stat"><span class="lbl">Teléfono</span><strong>${c.numero || '—'}</strong></div>
+        </div>
+        <div class="inv-card-actions">
+          <button class="btn-icon" onclick="editarCliente('${c.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="btn-icon" onclick="eliminarCliente('${c.id}')" style="color:var(--rojo);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+        </div>
       </div>
-      <div class="contacto-actions">
-       <button class="btn-icon" onclick="editarCliente('${c.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-        <button class="btn-icon" onclick="eliminarCliente('${c.id}')" style="color:var(--rojo);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
-      </div>
-    </div>
-  `).join('');
+    `;
+  }).join('') + `</div>`;
 }
 
 function renderProveedores(){
@@ -2563,18 +2675,30 @@ function renderProveedores(){
     lista.innerHTML = `<div style="padding:20px;text-align:center;color:var(--gris-60);font-size:13px;">Aún no has agregado proveedores.</div>`;
     return;
   }
-  lista.innerHTML = PROVEEDORES.map(p => `
-    <div class="contacto-row" id="prov-${p.id}">
-      <div class="contacto-info">
-        <strong>${p.nombre}</strong>
-        <span class="contacto-sub">${p.ciudad || '—'}${p.numero ? ' · 📞 ' + p.numero : ''}</span>
+  lista.innerHTML = `<div class="inv-cards-grid">` + PROVEEDORES.map(p => {
+    const avatar = p.foto_url
+      ? `<img class="cont-avatar-img" src="${p.foto_url}" alt="">`
+      : `<div class="cont-avatar">${ico('user', 22)}</div>`;
+    return `
+      <div class="inv-card" id="prov-${p.id}">
+        <div class="inv-card-head">
+          ${avatar}
+          <div class="inv-card-mid">
+            <div class="inv-card-name">${p.nombre}</div>
+            <span class="cont-card-sub">${p.ciudad || '—'}</span>
+          </div>
+        </div>
+        <div class="inv-card-stats">
+          <div class="inv-stat"><span class="lbl">Ciudad</span><strong>${p.ciudad || '—'}</strong></div>
+          <div class="inv-stat"><span class="lbl">Teléfono</span><strong>${p.numero || '—'}</strong></div>
+        </div>
+        <div class="inv-card-actions">
+          <button class="btn-icon" onclick="editarProveedor('${p.id}')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="btn-icon" onclick="eliminarProveedor('${p.id}')" style="color:var(--rojo);"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+        </div>
       </div>
-      <div class="contacto-actions">
-        <button class="btn-icon" onclick="editarProveedor('${p.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-        <button class="btn-icon" onclick="eliminarProveedor('${p.id}')" style="color:var(--rojo);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
-      </div>
-    </div>
-  `).join('');
+    `;
+  }).join('') + `</div>`;
 }
 
 /* ── CLIENTES: CRUD ─────────────────────────────────────────── */
@@ -2645,12 +2769,45 @@ async function guardarCliente(){
 
 /* ── PROVEEDORES: CRUD ──────────────────────────────────────── */
 
+let _provFotoFile = null;
+
+function resetFotoAreaProv(){
+  _provFotoFile = null;
+  document.getElementById('prov-foto-area').innerHTML = `
+    <label class="photo-drop" for="prov-foto-input">${ico('camera', 14)} Click para subir logo o foto del proveedor</label>
+    <input type="file" id="prov-foto-input" accept="image/*" style="display:none;" onchange="previewFotoProv(event)">
+  `;
+}
+
+function renderFotoPreviewProv(src, nombre){
+  document.getElementById('prov-foto-area').innerHTML = `
+    <label class="photo-wrap" for="prov-foto-input" title="Click para cambiar foto">
+      <img src="${src}" class="photo-preview">
+      <span class="photo-edit-hint">${ico('camera', 11)} Click para cambiar foto</span>
+    </label>
+    <div style="text-align:center;font-size:11px;color:var(--gris-60);margin-bottom:6px;">${nombre}</div>
+    <input type="file" id="prov-foto-input" accept="image/*" style="display:none;" onchange="previewFotoProv(event)">
+  `;
+}
+
+function previewFotoProv(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  _provFotoFile = file;
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    renderFotoPreviewProv(ev.target.result, file.name);
+  };
+  reader.readAsDataURL(file);
+}
+
 function abrirModalProveedor(){
   _proveedorEditando = null;
   document.getElementById('prov-modal-title').innerHTML = ico('factory', 13) + ' Nuevo Proveedor';
   document.getElementById('prov-nombre').value = '';
   document.getElementById('prov-ciudad').value = '';
   document.getElementById('prov-numero').value = '';
+  resetFotoAreaProv();
   document.getElementById('modal-proveedor').classList.add('open');
 }
 function cerrarModalProveedor(){
@@ -2661,10 +2818,16 @@ function editarProveedor(id){
   const p = PROVEEDORES.find(x => x.id === id);
   if(!p) return;
   _proveedorEditando = id;
+  _provFotoFile = null;
   document.getElementById('prov-modal-title').innerHTML = ico('pencil', 13) + ' Editar Proveedor';
   document.getElementById('prov-nombre').value = p.nombre;
   document.getElementById('prov-ciudad').value = p.ciudad || '';
   document.getElementById('prov-numero').value = p.numero || '';
+  if(p.foto_url){
+    renderFotoPreviewProv(p.foto_url, p.nombre);
+  } else {
+    resetFotoAreaProv();
+  }
   document.getElementById('modal-proveedor').classList.add('open');
 }
 
@@ -2687,18 +2850,35 @@ async function guardarProveedor(){
     return;
   }
 
-  const payload = { nombre, ciudad, numero };
-
-  if(_proveedorEditando){
-    const { error } = await sb.from('proveedores').update(payload).eq('id', _proveedorEditando);
-    if(error){ showToast('❌ Error: ' + error.message, 'error'); return; }
-    showToast(`✅ Proveedor "${nombre}" actualizado`);
-  } else {
-    const { error } = await sb.from('proveedores').insert(payload);
-    if(error){ showToast('❌ Error: ' + error.message, 'error'); return; }
-    showToast(`✅ Proveedor "${nombre}" agregado`);
+  let fotoUrl = null;
+  if(_provFotoFile){
+    showToast('Subiendo imagen...', 'info');
+    fotoUrl = await subirACloudinary(_provFotoFile);
+    if(!fotoUrl) showToast('⚠️ No se pudo subir la imagen del proveedor', 'error');
   }
 
+  const payload = { nombre, ciudad, numero };
+  if(fotoUrl) payload.foto_url = fotoUrl;
+
+  async function guardar(p){
+    if(_proveedorEditando) return await sb.from('proveedores').update(p).eq('id', _proveedorEditando);
+    return await sb.from('proveedores').insert(p);
+  }
+
+  let res = await guardar(payload);
+  if(res.error && res.error.message && /foto_url|column/.test(res.error.message)){
+    const p2 = { ...payload };
+    delete p2.foto_url;
+    res = await guardar(p2);
+    if(res.error){ showToast('❌ Error: ' + res.error.message, 'error'); return; }
+    cerrarModalProveedor();
+    await cargarProveedores();
+    showToast('⚠️ Guardado sin foto: falta ejecutar la migración SQL en Supabase', 'info');
+    return;
+  }
+  if(res.error){ showToast('❌ Error: ' + res.error.message, 'error'); return; }
+
+  showToast(_proveedorEditando ? `✅ Proveedor "${nombre}" actualizado` : `✅ Proveedor "${nombre}" agregado`);
   cerrarModalProveedor();
   await cargarProveedores();
 }
@@ -6677,14 +6857,14 @@ async function logoBase64(){
 }
 function buscarCliente(query){
   const q = query.toLowerCase();
-  document.querySelectorAll('#clientes-lista .contacto-row').forEach(row => {
+  document.querySelectorAll('#clientes-lista .inv-card').forEach(row => {
     row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
   });
 }
 
 function buscarProveedor(query){
   const q = query.toLowerCase();
-  document.querySelectorAll('#proveedores-lista .contacto-row').forEach(row => {
+  document.querySelectorAll('#proveedores-lista .inv-card').forEach(row => {
     row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
   });
 }
@@ -6927,338 +7107,6 @@ function playSonido(tipo){
       osc.stop(t + 0.45);
     });
   }catch(e){}
-}
-
-/* ============================================================
-   CHATBOT ATENAS - Asistente de inventario y facturas
-   ============================================================ */
-let _chatItems = [];
-
-const CHAT_BIENVENIDA = 'Hola, soy el asistente de Atenas y conozco tu inventario y tus ventas. Mándame tu pedido y te digo qué tienes y qué está agotado, o toca <i>"Análisis"</i> para ver cómo va tu negocio.';
-
-let CHAT_AYUDA = 'Puedo ayudarte con:<br><br>📦 <b>Revisar un pedido:</b> escríbeme los productos y sus cantidades<br>🧾 <b>Simulación de factura:</b> escribe <i>"hazme una simulación de factura"</i><br>🔎 <b>Consultar un producto:</b> <i>"¿cuánto stock hay de ...?"</i><br>📊 <b>Análisis:</b> <i>"¿cómo van las ventas este mes?"</i>';
-
-function toggleChat(){
-  const panel = document.getElementById('chat-panel');
-  if(!panel) return;
-  const launcher = document.querySelector('.chat-launcher');
-  const abrir = !panel.classList.contains('open');
-  panel.classList.toggle('open');
-  if(launcher) launcher.classList.toggle('hidden', abrir);
-  if(abrir){
-    const rp = document.getElementById('resumen-panel');
-    if(rp) rp.classList.remove('open');
-    actualizarSugerenciasChat();
-    const msgs = document.getElementById('chat-msgs');
-    if(msgs && msgs.children.length === 0) appendMsg('bot', CHAT_BIENVENIDA);
-    setTimeout(()=>{ const i = document.getElementById('chat-input'); if(i) i.focus(); }, 80);
-  }
-}
-
-function appendMsg(rol, html){
-  const cont = document.getElementById('chat-msgs');
-  if(!cont) return;
-  const d = document.createElement('div');
-  d.className = 'chat-msg ' + rol;
-  d.innerHTML = html;
-  cont.appendChild(d);
-  chatScroll();
-}
-
-function chatScroll(){
-  const cont = document.getElementById('chat-msgs');
-  if(cont) cont.scrollTop = cont.scrollHeight;
-}
-
-function chatQuick(texto){
-  const input = document.getElementById('chat-input');
-  if(input) input.value = texto;
-  enviarChat();
-}
-
-let _modoStock = false;
-
-function chatConsultarStock(){
-  _modoStock = true;
-  appendMsg('bot', '🔎 Escribe el nombre del producto que quieres revisar, ej: <i>"ampolla anticaída"</i>.');
-  setTimeout(()=>{ const i = document.getElementById('chat-input'); if(i) i.focus(); }, 60);
-}
-
-function enviarChat(){
-  const input = document.getElementById('chat-input');
-  if(!input) return;
-  const texto = input.value.trim();
-  if(!texto) return;
-  input.value = '';
-  appendMsg('user', escapeHtml(texto));
-  setTimeout(()=>procesarChat(texto), 350);
-}
-
-function escapeHtml(s){
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-function normalizar(s){
-  return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
-}
-
-const _STOP_BUSQ = new Set(['de','la','el','los','las','del','un','una','unos','unas','que','hay','en','para','con','y','me','te']);
-
-function _canon(t){
-  t = t.toLowerCase();
-  if(t.endsWith('es') && t.length > 4) return t.slice(0, -2);
-  if(t.endsWith('s') && t.length > 3) return t.slice(0, -1);
-  return t;
-}
-
-function buscarCandidatos(nombre){
-  const n = normalizar(nombre).replace(/[?.!]+$/, '');
-  if(!n) return [];
-  const ref = PRODUCTOS.filter(p => normalizar(p.referencia) === n);
-  if(ref.length) return ref;
-  const exact = PRODUCTOS.filter(p => normalizar(p.nombre) === n);
-  if(exact.length) return exact;
-  const cont = PRODUCTOS.filter(p => normalizar(p.nombre).includes(n) || n.includes(normalizar(p.nombre)));
-  if(cont.length) return cont;
-  const qt = n.split(/\s+/).map(_canon).filter(t => t.length > 2 && !_STOP_BUSQ.has(t));
-  if(!qt.length) return [];
-  const scored = PRODUCTOS
-    .map(p => ({ p, inter: qt.filter(t => normalizar(p.nombre).split(/\s+/).map(_canon).includes(t)).length }))
-    .filter(x => x.inter > 0)
-    .sort((a, b) => b.inter - a.inter);
-  if(!scored.length) return [];
-  const top = scored.filter(x => x.inter === scored[0].inter);
-  return top.map(x => x.p);
-}
-
-function buscarProducto(nombre){
-  const cands = buscarCandidatos(nombre);
-  return cands.length === 1 ? cands[0] : null;
-}
-
-function actualizarSugerenciasChat(){
-  if(!PRODUCTOS.length) return;
-  const grupos = {};
-  for(const p of PRODUCTOS){
-    const primera = normalizar(p.nombre).split(/\s+/)[0];
-    if(!primera || primera.length < 3 || _STOP_BUSQ.has(primera)) continue;
-    grupos[primera] = (grupos[primera] || 0) + 1;
-  }
-  const top = Object.entries(grupos).sort((a,b) => b[1] - a[1]).slice(0, 6);
-  if(!top.length) return;
-  const fams = top.map(e => e[0]);
-  const ej = PRODUCTOS.filter(p => fams.includes(normalizar(p.nombre).split(/\s+/)[0]));
-  if(ej.length >= 2){
-    const ej1 = ej[0].nombre, ej2 = ej.find(p => normalizar(p.nombre).split(/\s+/)[0] !== normalizar(ej1).split(/\s+/)[0]).nombre || ej[1].nombre;
-    const inp = document.getElementById('chat-input');
-    if(inp) inp.placeholder = 'Ej: 2 ' + ej1 + ', 1 ' + ej2;
-    CHAT_AYUDA = 'Puedo ayudarte con:<br><br>📦 <b>Revisar un pedido:</b> escribe tu pedido, ej. <i>"2 ' + escapeHtml(ej1) + ', 1 ' + escapeHtml(ej2) + '"</i>, y te digo qué tienes y qué está agotado<br>🧾 <b>Factura:</b> después del pedido escribe <i>"simular factura"</i> y te hago el PDF con los que tienes stock<br>📊 <b>Análisis:</b> toca el botón <i>"Análisis"</i> o escribe <i>"¿cómo van las ventas este mes?"</i>';
-  }
-}
-
-function parsearPedido(texto){
-  let t = texto.replace(/^(revisar|revisa|revisame|verifica|chequea|mira|valida|dime|tengo)\s+(el\s+|mi\s+|mis\s+|este\s+|estos\s+|estas\s+|los\s+|las\s+|unos\s+|un\s+|una\s+)?(pedido|lista|listado|productos|producto|articulos)?\s*:?\s*/i, '');
-  t = t.replace(/^(hola|buenas|hola buenas|buenos dias|hey|oye|oye mira)[,\s!]+(mira|chequea|revisa|revisame|verifica|dime)?\s*(estos|estas|los|las|mis|unos)?\s*(productos|producto|articulos|pedido|lista)?\s*:?\s*/i, '');
-  t = t.replace(/^pedido\s*:?\s*/i, '');
-  const partes = t.split(/,|;|\n|\by\b/i);
-  const items = [];
-  for(const parte of partes){
-    const p = parte.trim().replace(/\s+/g,' ').replace(/\.$/,'');
-    if(!p) continue;
-    const m = p.match(/^(\d+(?:[.,]\d+)?)[\s\-]+(.+)$/);
-    const cantidad = m && m[1] ? Math.max(1, Math.round(parseFloat(m[1].replace(',','.')))) : 1;
-    const nombre = m ? m[2].trim() : p;
-    if(nombre.length > 1 && !/^(revisar|revisa|pedido|hola|buenas|ayuda|gracias)$/i.test(nombre)) items.push({ cantidad, nombre });
-  }
-  return items;
-}
-
-function extraerConsulta(texto){
-  const t = normalizar(texto).replace(/[?.!]+$/,'');
-  const patrones = [
-    /stock\s+disponible\s+(?:de\s+)?(.+)/i,
-    /stock\s+(?:hay\s+)?(?:de\s+)?(.+)/i,
-    /precio\s+(?:de\s+)?(.+)/i,
-    /cuanto\s+stock\s+(?:hay\s+)?(?:de\s+)?(.+)/i,
-    /cuanto\s+(?:cuesta|vale|es)\s+(.+)/i,
-    /cuanto\s+hay\s+(?:de\s+)?(.+)/i,
-    /hay\s+stock\s+(?:de\s+)?(.+)/i,
-    /tienes\s+stock\s+(?:de\s+)?(.+)/i,
-    /tienes\s+(.+)/i,
-    /tengo\s+(?:stock\s+)?(?:de\s+)?(.+)/i,
-    /queda\s+(?:stock\s+)?(?:de\s+)?(.+)/i,
-    /disponible\s+(?:de\s+)?(.+)/i
-  ];
-  for(const rx of patrones){
-    const m = t.match(rx);
-    if(m && m[1]) return m[1].trim();
-  }
-  return null;
-}
-
-const PALABRAS_ANALISIS = ['analiza','analisis','reporte','resumen','estadistic','utilidad','proyeccion','como van','como vamos','como va','ventas del','compras del','gastos del','este mes','el mes','ultimo mes','mejor producto','mas vendido','menos vendido','agotado','sin stock','inventario','cuanto vend','cuanto gast','cuanto compr','balance'];
-
-let _chatHistorial = [];
-
-function procesarChat(texto){
-  const t = normalizar(texto);
-
-  if(_modoStock){
-    _modoStock = false;
-    consultarProducto(extraerConsulta(texto) || texto);
-    return;
-  }
-
-  if(t.includes('factura') || t.includes('simul') || t.includes('cotiz') || t.includes('pdf')){
-    generarSimulacion();
-    return;
-  }
-
-  const consulta = extraerConsulta(texto);
-  if(consulta && !/\d/.test(t) && (t.includes('stock') || t.includes('precio') || t.includes('cuesta') || t.includes('vale') || t.includes('cuanto') || t.includes('hay') || t.includes('tengo') || t.includes('tienes') || t.includes('queda') || t.includes('disponible'))){
-    consultarProducto(consulta);
-    return;
-  }
-
-  const items = parsearPedido(texto);
-  const encontroAlguno = items.some(it => buscarCandidatos(it.nombre).length > 0);
-  if(items.length && (/\d/.test(t) || encontroAlguno)){
-    revisarPedido(items);
-    return;
-  }
-
-  if(PALABRAS_ANALISIS.some(p => t.includes(p))){
-    preguntarAI(texto);
-    return;
-  }
-
-  if(t.includes('ayuda') || /^(hola|buenas|que\s+tal)/.test(t)){
-    appendMsg('bot', CHAT_AYUDA);
-    return;
-  }
-
-  preguntarAI(texto);
-}
-
-async function preguntarAI(texto){
-  const cont = document.getElementById('chat-msgs');
-  const pensando = document.createElement('div');
-  pensando.className = 'chat-msg bot';
-  pensando.innerHTML = '⏳ Pensando...';
-  cont.appendChild(pensando);
-  chatScroll();
-
-  _chatHistorial.push({ role: 'user', content: texto });
-  try{
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: texto, historial: _chatHistorial.slice(-8, -1) })
-    });
-    if(res.status === 501) throw new Error('no-key');
-    if(!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
-    pensando.remove();
-    const rta = data.respuesta || 'Sin respuesta.';
-    _chatHistorial.push({ role: 'bot', content: rta });
-    appendMsg('bot', rta);
-  }catch(e){
-    pensando.remove();
-    _chatHistorial = [];
-    console.error('Error /api/chat:', e);
-    if(e.message === 'no-key'){
-      appendMsg('bot', 'La IA aún no está configurada: falta la clave <i>GROQ_API_KEY</i> en Vercel. ' + CHAT_AYUDA);
-    } else if(e.message === 'HTTP 404'){
-      appendMsg('bot', 'No encontré la función de la IA. Esto pasa cuando pruebas la página abierta en tu computador o cuando el despliegue de Vercel aún no tiene la carpeta <i>api/</i>. ' + CHAT_AYUDA);
-    } else if(e.message.startsWith('HTTP')){
-      appendMsg('bot', 'La IA respondió con el error <b>' + e.message + '</b>. Entra a vercel.com → tu proyecto → <b>Logs</b> para ver el detalle. ' + CHAT_AYUDA);
-    } else {
-      appendMsg('bot', 'No pude conectar con la IA: <b>' + escapeHtml(e.message) + '</b>. Si estás probando desde tu computador, abre tu página de Vercel (la que termina en <i>.vercel.app</i>), no el archivo local. ' + CHAT_AYUDA);
-    }
-  }
-}
-
-function revisarPedido(items){
-  const faltan = [], ok = [], noEncontrados = [];
-  _chatItems = [];
-  for(const it of items){
-    const prod = buscarProducto(it.nombre);
-    if(!prod){ noEncontrados.push({ nombre: it.nombre, cantidad: it.cantidad }); continue; }
-    if(prod.stock < it.cantidad) faltan.push({ prod, cantidad: it.cantidad });
-    else ok.push({ prod, cantidad: it.cantidad });
-  }
-  if(ok.length) _chatItems = ok.map(o => ({ prod: o.prod, cantidad: o.cantidad }));
-
-  let html = '';
-  if(ok.length){
-    html += `✅ <b>Tienes stock para el pedido de:</b><br>`;
-    for(const o of ok){
-      html += `&nbsp;&nbsp;•&nbsp; ${o.prod.nombre} — pides <b>${o.cantidad}</b>, tienes <b>${o.prod.stock}</b><br>`;
-    }
-  }
-  if(faltan.length){
-    html += `⚠️ <b>Sin suficiente stock:</b><br>`;
-    for(const f of faltan){
-      const faltantes = f.cantidad - f.prod.stock;
-      const estado = f.prod.stock <= 0 ? 'AGOTADO' : `tienes ${f.prod.stock}, te faltan ${faltantes}`;
-      html += `&nbsp;&nbsp;•&nbsp; ${f.prod.nombre} — pides <b>${f.cantidad}</b>, <b>${estado}</b><br>`;
-    }
-  }
-  if(noEncontrados.length){
-    html += `🤔 No encontré: ${noEncontrados.map(n => `"${escapeHtml(n.nombre)}"`).join(', ')}<br>`;
-  }
-  if(ok.length){
-    html += `<br>Si quieres, genera la factura con los productos disponibles:<br><button class="chat-btn-accion" onclick="generarSimulacion()">🧾 Simular factura</button>`;
-  } else {
-    html += `<br>No quedó ningún producto con stock para facturar. Abastece el inventario e inténtalo de nuevo.`;
-  }
-  appendMsg('bot', html);
-}
-
-function consultarProducto(nombre){
-  const cands = buscarCandidatos(nombre);
-  if(!cands.length){
-    appendMsg('bot', `🤔 No encontré "<i>${escapeHtml(nombre)}</i>" en el inventario.`);
-    return;
-  }
-  if(cands.length === 1){
-    const prod = cands[0];
-    const margen = prod.costo > 0 ? Math.round(((prod.precio - prod.costo) / prod.costo) * 100) : 0;
-    appendMsg('bot', `<b>${prod.nombre}</b> (${prod.referencia})<br>📦 Stock: <b>${prod.stock}</b><br>💰 Precio: <b>${formatCOP(prod.precio)}</b><br>📉 Costo: ${formatCOP(prod.costo)} — margen ${margen}%`);
-    return;
-  }
-  let html = `Encontré ${cands.length} productos que coinciden con "<i>${escapeHtml(nombre)}</i>":<br>`;
-  for(const p of cands.slice(0, 8)){
-    html += `&nbsp;&nbsp;•&nbsp; ${p.nombre} (${p.referencia}) — <b>${p.stock}</b> — ${formatCOP(p.precio)}<br>`;
-  }
-  appendMsg('bot', html);
-}
-
-async function generarSimulacion(){
-  if(!_chatItems || !_chatItems.length){
-    appendMsg('bot', 'Primero mándame tu pedido, ej: <i>"2 ampolla anticaída, 1 vestido de baño"</i>, y luego me dices <i>"simular factura"</i> y te hago el PDF con los que tienes stock.');
-    return;
-  }
-  appendMsg('bot', '🧾 Generando simulación de factura...');
-  const fecha = new Date().toLocaleDateString('es-CO', {day:'2-digit', month:'long', year:'numeric'});
-  const items = _chatItems.map(it => ({
-    nombre: it.prod.nombre, cantidad: it.cantidad,
-    precio: it.prod.precio, subtotal: Math.round(it.prod.precio * it.cantidad), foto: null
-  }));
-  const total = items.reduce((s, i) => s + i.subtotal, 0);
-  try{
-    abrirModalFacturaCargando();
-    const pdfBlob = await construirFacturaPDF({
-      titulo: 'Simulación de Factura',
-      fecha, cliente: 'SIMULACIÓN', telefono: '',
-      metodoPago: 'Simulación', numero: 'SIM-' + String(Date.now()).slice(-6),
-      items, descuento: 0, total
-    });
-    mostrarFacturaPDF(pdfBlob, `Simulacion_Factura_${new Date().toISOString().slice(0, 10)}`);
-    appendMsg('bot', `✅ Simulación lista — total: <b>${formatCOP(total)}</b>. Se abrió la vista previa del PDF.`);
-  }catch(e){
-    appendMsg('bot', '❌ Ocurrió un error generando la factura: ' + e.message);
-  }
 }
 
 /* ── Copiar al portapapeles: clic simple sobre un valor con $ ── */
