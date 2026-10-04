@@ -21,6 +21,20 @@ function formatCOP(value){
   return '$' + Math.round(num).toLocaleString('es-CO');
 }
 
+/** Convierte un dataURL (base64) en un Blob para subirlo a Cloudinary o compartirlo */
+function dataURLtoBlob(dataURL){
+  try {
+    const partes = String(dataURL).split(',');
+    const mime = (partes[0].match(/data:(.*?);/) || [])[1] || 'image/jpeg';
+    const bin = atob(partes[1] || '');
+    const arr = new Uint8Array(bin.length);
+    for(let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: mime });
+  } catch(e){
+    return null;
+  }
+}
+
 /** Muestra una notificación tipo toast. type: success | error | info */
 function showToast(msg, type){
   type = type || 'success';

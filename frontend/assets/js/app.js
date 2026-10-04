@@ -1454,7 +1454,12 @@ function seleccionarProveedorCotiz(nombre){
 /* ── Items de cotización (igual patrón que compras) ─────────── */
 function agregarItemCotiz(){
   const id = 'cot-item-' + (++_cotizItemSeq);
-  _cotizItems.push({ id, ref:'', nombre:'', costo:0, cantidad:1, icon:'📦' });
+  _cotizItems.push({ id, ref:'', nombre:'', costo:0, cantidad:1, icon:'📦', libre:false, foto_url:null, foto_sim:null });
+  renderItemsCotiz();
+}
+function agregarItemCotizLibre(){
+  const id = 'cot-item-' + (++_cotizItemSeq);
+  _cotizItems.push({ id, ref:'', nombre:'', costo:0, cantidad:1, icon:'📦', libre:true, foto_url:null, foto_sim:null });
   renderItemsCotiz();
 }
 function eliminarItemCotiz(id){
@@ -1464,21 +1469,30 @@ function eliminarItemCotiz(id){
 }
 function renderItemsCotiz(){
   const cont = document.getElementById('cot-items-list');
-  cont.innerHTML = _cotizItems.map(it => `
+  cont.innerHTML = _cotizItems.map(it => {
+    const esLibre = it.libre;
+    const foto = it.foto_sim || it.foto_url || '';
+    return `
     <div class="pi-card" data-id="${it.id}">
       <button type="button" class="pi-remove" title="Quitar producto" onclick="eliminarItemCotiz('${it.id}')">✕</button>
       <div class="pi-head">
         <div class="autocomplete-wrap">
-          <input class="form-input" placeholder="Buscar producto (nombre o ref)..." value="${it.nombre}"
+          ${esLibre
+            ? `<input class="form-input" placeholder="Nombre del producto personalizado..." value="${it.nombre}"
+                 oninput="cambiarNombreCotizLibre('${it.id}', this.value)" autocomplete="off">
+               ${it.nombre ? `<span class="form-hint">${ico('box', 11)} Producto personalizado — nombre y precio</span>` : ''}`
+            : `<input class="form-input" placeholder="Buscar producto (nombre o ref)..." value="${it.nombre}"
                  oninput="buscarProductoCotiz('${it.id}', this.value)" autocomplete="off">
-          <div class="autocomplete-list" id="cot-ac-${it.id}"></div>
-          ${it.ref ? `<span class="form-hint">${ico('box', 11)} ${it.nombre} — Stock: ${productoStock(it.ref)}</span>` : ''}
+               <div class="autocomplete-list" id="cot-ac-${it.id}"></div>
+               ${it.ref ? `<span class="form-hint">${ico('box', 11)} ${it.nombre} — Stock: ${productoStock(it.ref)}</span>` : ''}`}
         </div>
-        <div class="pi-thumb">
-          ${it.foto_url
-            ? `<img src="${it.foto_url}" alt="">`
+        <div class="pi-thumb" onclick="document.getElementById('cot-foto-${it.id}').click()" title="Click para poner foto (productos personalizados)">
+          ${foto
+            ? `<img src="${foto}" alt="" crossorigin="anonymous">`
             : `<div class="pi-thumb-icon">${proIcon(it.icon, 30)}</div>`}
+          <span class="pi-thumb-cam">📷</span>
         </div>
+        <input type="file" id="cot-foto-${it.id}" accept="image/*" style="display:none;" onchange="cargarFotoCotizItem('${it.id}', event)">
       </div>
       <div class="pi-grid">
         <div>
@@ -1498,9 +1512,38 @@ function renderItemsCotiz(){
           <div class="pi-sub" id="cot-sub-${it.id}">${formatCOP(it.costo * it.cantidad)}</div>
         </div>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
   calcTotalCotiz();
+}
+function cambiarNombreCotizLibre(id, valor){
+  const item = _cotizItems.find(it => it.id === id);
+  if(item) item.nombre = valor.trim();
+}
+function cargarFotoCotizItem(id, event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    const img = new Image();
+    img.onload = function(){
+      const MAX = 480;
+      let w = img.width, h = img.height;
+      if(w > MAX || h > MAX){
+        const s = Math.min(MAX / w, MAX / h);
+        w = Math.round(w * s); h = Math.round(h * s);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const item = _cotizItems.find(it => it.id === id);
+      if(!item) return;
+      item.foto_sim = canvas.toDataURL('image/jpeg', 0.85);
+      renderItemsCotiz();
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
 }
 function stepperCotiz(id, delta){
   const item = _cotizItems.find(it => it.id === id);
@@ -1537,10 +1580,12 @@ function seleccionarProductoCotiz(id, productoId){
   const p = PRODUCTOS.find(x => x.id === productoId);
   if(!p) return;
   const item = _cotizItems.find(it => it.id === id);
+  item.libre = false;
   item.ref = p.id;
   item.nombre = p.nombre;
   item.icon = p.icono || '📦';
   item.foto_url = p.foto_url || null;
+  item.foto_sim = null;
   item.costo = p.costo;
   renderItemsCotiz();
 }
@@ -1585,7 +1630,11 @@ function editarCotizacion(btn){
   _cotizItemSeq = 0;
   itemsData.forEach(it=>{
     const id = 'cot-item-' + (++_cotizItemSeq);
-    _cotizItems.push({ id, ref: it.ref, nombre: it.nombre, costo: it.costo, cantidad: it.cantidad, icon: it.icon });
+    _cotizItems.push({
+      id, ref: it.ref, nombre: it.nombre, costo: it.costo, cantidad: it.cantidad, icon: it.icon,
+      libre: !it.ref,
+      foto_url: it.foto_url || null
+    });
   });
   renderItemsCotiz();
 }
@@ -2917,13 +2966,15 @@ function renderCotizaciones(){
       nombre: it.producto_nombre,
       costo: it.costo_unitario,
       cantidad: it.cantidad,
-      icon: it.producto_icono || '📦'
+      icon: it.producto_icono || '📦',
+      foto_url: it.foto_url || ''
     })));
 
     const detalleHtml = items.map(it=>{
   const prod = PRODUCTOS.find(p => p.id === it.producto_id);
-  const thumb = prod && prod.foto_url
-    ? `<img src="${prod.foto_url}" style="width:30px;height:30px;border-radius:7px;object-fit:cover;">`
+  const fotoItem = it.foto_url || (prod && prod.foto_url);
+  const thumb = fotoItem
+    ? `<img src="${fotoItem}" style="width:30px;height:30px;border-radius:7px;object-fit:cover;" crossorigin="anonymous">`
     : `${proIcon(it.producto_icono, 14)}`;
   return `
     <div class="venta-item-row">
@@ -2951,6 +3002,9 @@ function renderCotizaciones(){
             <input type="checkbox" class="cotiz-check" title="Marcar como comprado"
                    ${cot.comprado ? 'checked' : ''}
                    onchange="toggleCotizComprado(this, '${cot.id}')">
+            <button class="btn-icon" onclick="verCotizPDF('${cot.id}')" title="Ver / imprimir cotización" style="color:var(--celeste-dark);">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            </button>
             <button class="btn-icon" onclick="editarCotizacion(this)" title="Editar">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </button>
@@ -3014,16 +3068,8 @@ async function guardarCotizacion(){
 
     // Borrar items viejos y re-insertar
     await sb.from('cotizacion_items').delete().eq('cotizacion_id', cotId);
-    const items = itemsValidos.map(it=>({
-      cotizacion_id: cotId,
-      producto_id: it.ref || null,
-      producto_nombre: it.nombre,
-      producto_icono: it.icon || '📦',
-      costo_unitario: it.costo,
-      cantidad: it.cantidad,
-      subtotal: it.costo * it.cantidad
-    }));
-    await sb.from('cotizacion_items').insert(items);
+    const guardado = await insertarItemsCotiz(cotId, itemsValidos);
+    if(!guardado) return;
     showToast(`✅ Cotización de ${proveedor.value.trim()} actualizada`);
 
   } else {
@@ -3031,21 +3077,54 @@ async function guardarCotizacion(){
     const { data: newCot, error: errIns } = await sb.from('cotizaciones').insert(payload).select().single();
     if(errIns){ showToast('❌ Error: ' + errIns.message, 'error'); return; }
 
-    const items = itemsValidos.map(it=>({
-      cotizacion_id: newCot.id,
-      producto_id: it.ref || null,
-      producto_nombre: it.nombre,
-      producto_icono: it.icon || '📦',
-      costo_unitario: it.costo,
-      cantidad: it.cantidad,
-      subtotal: it.costo * it.cantidad
-    }));
-    await sb.from('cotizacion_items').insert(items);
+    const guardado = await insertarItemsCotiz(newCot.id, itemsValidos);
+    if(!guardado) return;
     showToast(`✅ Cotización de ${proveedor.value.trim()} guardada — ${formatCOP(total)}`);
   }
 
   cerrarModalCotizacion();
   await cargarCotizaciones();
+}
+
+/** Resuelve la foto final de un ítem: si tiene foto temporal (base64) la sube a Cloudinary */
+async function resolverFotoItem(it){
+  if(it.foto_sim){
+    const blob = dataURLtoBlob(it.foto_sim);
+    if(blob){
+      const url = await subirACloudinary(new File([blob], 'producto_cotizacion.jpg', { type: 'image/jpeg' }));
+      if(url) return url;
+    }
+  }
+  return it.foto_url || null;
+}
+
+/** Inserta los ítems de la cotización con foto_url. Retorna false si falla. */
+async function insertarItemsCotiz(cotizacionId, itemsValidos){
+  const items = [];
+  for(const it of itemsValidos){
+    const fotoUrl = await resolverFotoItem(it);
+    items.push({
+      cotizacion_id: cotizacionId,
+      producto_id: it.ref || null,
+      producto_nombre: it.nombre,
+      producto_icono: it.icon || '📦',
+      costo_unitario: it.costo,
+      cantidad: it.cantidad,
+      subtotal: it.costo * it.cantidad,
+      foto_url: fotoUrl
+    });
+  }
+  const { error } = await sb.from('cotizacion_items').insert(items);
+  if(error && /foto_url/i.test(error.message || '')){
+    const { error: err2 } = await sb.from('cotizacion_items').insert(
+      items.map(it => { const { foto_url, ...rest } = it; return rest; })
+    );
+    if(err2){ showToast('❌ Error: ' + err2.message, 'error'); return false; }
+    showToast('ℹ️ Fotos de productos no guardadas — ejecuta la migración cotizacion_items.foto_url', 'info');
+    return true;
+  }
+  if(error){ showToast('❌ Error: ' + error.message, 'error'); return false; }
+  return true;
 }
 
 /** Eliminar cotización */
@@ -3067,6 +3146,45 @@ async function toggleCotizComprado(checkbox, id){
 
   await sb.from('cotizaciones').update({ comprado }).eq('id', id);
   showToast(comprado ? '✅ Marcado como comprado' : '↩️ Marcado como pendiente', comprado ? 'success' : 'info');
+}
+
+/** Ver / imprimir la cotización como PDF con el estilo de factura */
+async function verCotizPDF(id){
+  const cot = COTIZACIONES.find(c => c.id === id);
+  if(!cot){ showToast('⚠️ Cotización no encontrada', 'error'); return; }
+  const items = cot.cotizacion_items || [];
+  const prov = PROVEEDORES.find(p => p.id === cot.proveedor_id);
+
+  const fechaBase = cot.created_at ? new Date(cot.created_at) : new Date();
+  const fecha = fechaBase.toLocaleDateString('es-CO', { year:'numeric', month:'long', day:'numeric' });
+  const fechaArchivo = fechaBase.toLocaleDateString('es-CO', { day:'2-digit', month:'2-digit', year:'2-digit' });
+  const nombreArchivo = `Cotizacion_Proveedor_${(cot.proveedor_nombre || 'Proveedor').replace(/\s+/g,'_')}_${fechaArchivo.replace(/\//g,'-')}`;
+
+  abrirModalFacturaCargando();
+  try{
+    const provFoto = prov && prov.foto_url ? await imagenMini(prov.foto_url) : '';
+    const pdfBlob = await construirFacturaPDF({
+      titulo: 'Cotización de Pedido',
+      fecha, cliente: cot.proveedor_nombre || 'Proveedor', telefono: '',
+      metodoPago: '', numero: numeroFactura(cot.id),
+      proveedorFoto: provFoto,
+      items: items.map(it => {
+        const prod = PRODUCTOS.find(p => p.id === it.producto_id);
+        return {
+          nombre: it.producto_nombre,
+          cantidad: it.cantidad,
+          precio: it.costo_unitario,
+          subtotal: it.costo_unitario * it.cantidad,
+          foto: it.foto_url || (prod && prod.foto_url) || ''
+        };
+      }),
+      descuento: 0, domicilio: 0, total: cot.total
+    });
+    mostrarFacturaPDF(pdfBlob, nombreArchivo);
+  }catch(e){
+    cerrarFacturaPreview();
+    showToast('❌ No se pudo generar la cotización: ' + (e.message || e), 'error');
+  }
 }
 
 /* ============================================================
@@ -4396,6 +4514,9 @@ function fxInvoiceStyle(){
   }
   .fx-info-label{font-size:8.5px;font-weight:700;letter-spacing:2.2px;color:var(--fx-texto2);}
   .fx-info-val{font-size:13px;font-weight:700;color:var(--fx-texto);line-height:1.35;word-break:break-word;max-width:100%;}
+  .fx-info-val-prov{display:inline-flex;align-items:center;justify-content:center;gap:8px;}
+  .fx-prov-pic{width:34px;height:34px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2px solid rgba(233,30,131,.28);box-shadow:0 2px 8px rgba(233,30,131,.18);background:#fff;}
+  .fx-prov-pic img{width:100%;height:100%;object-fit:cover;display:block;}
 
   /* ---- productos ---- */
   .fx-prods{
@@ -4523,8 +4644,9 @@ function fxContactHTML(){
     </div>`;
 }
 
-/** Tarjeta glassmorphism: Fecha | Cliente | Método de pago */
-function fxInfoHTML({fecha, cliente, metodoPago}){
+/** Tarjeta glassmorphism: Fecha | Cliente/Proveedor | Método de pago */
+function fxInfoHTML({fecha, cliente, metodoPago, proveedorFoto}){
+  const etiqueta = proveedorFoto ? 'PROVEEDOR' : 'CLIENTE';
   return `
     <div class="fx-info">
       <div class="fx-info-col">
@@ -4534,8 +4656,8 @@ function fxInfoHTML({fecha, cliente, metodoPago}){
       </div>
       <div class="fx-info-col">
         <span class="fx-ico">${fxIcon('user', 16, '#E91E83')}</span>
-        <span class="fx-info-label">CLIENTE</span>
-        <span class="fx-info-val">${cliente || '—'}</span>
+        <span class="fx-info-label">${etiqueta}</span>
+        <span class="fx-info-val fx-info-val-prov">${proveedorFoto ? `<span class="fx-prov-pic"><img src="${proveedorFoto}" alt=""></span>` : ''}<span>${cliente || '—'}</span></span>
       </div>
       <div class="fx-info-col">
         <span class="fx-ico">${fxIcon('card', 16, '#E91E83')}</span>
@@ -4636,7 +4758,7 @@ function fxDecorHTML(){
 }
 
 /** Construye el HTML completo de la factura (documento de una sola página fluida, usado como plantilla de medición) */
-function construirFacturaHTML({numero, titulo, fecha, cliente, telefono, metodoPago, items, descuento, total, logo, footer, domicilio}){
+function construirFacturaHTML({numero, titulo, fecha, cliente, telefono, metodoPago, items, descuento, total, logo, footer, domicilio, proveedorFoto}){
   const rowsHtml = (items || []).map(fxRowHTML).join('');
   return `<!DOCTYPE html>
 <html lang="es">
@@ -4653,7 +4775,7 @@ function construirFacturaHTML({numero, titulo, fecha, cliente, telefono, metodoP
     <div class="fx-flow" style="height:auto;">
       ${fxHeadHTML({numero, titulo, logo, fecha})}
       ${fxContactHTML()}
-      ${fxInfoHTML({fecha, cliente, metodoPago})}
+      ${fxInfoHTML({fecha, cliente, metodoPago, proveedorFoto})}
       ${fxProdsHTML(rowsHtml)}
       ${fxTotalHTML({total, descuento, domicilio, metodoPago})}
       ${fxFooterContentHTML()}
@@ -4681,7 +4803,7 @@ async function esperarAssets(cont){
 }
 
 /** Renderiza UNA página de la factura a canvas (210×297mm exactos) */
-async function renderPaginaFactura(cont, {numero, titulo, fecha, cliente, metodoPago, rows, logo, total, descuento, domicilio}, tipo, pagina, escala = 2){
+async function renderPaginaFactura(cont, {numero, titulo, fecha, cliente, metodoPago, rows, logo, total, descuento, domicilio, proveedorFoto}, tipo, pagina, escala = 2){
   const page = document.createElement('div');
   page.className = 'fx-page';
   page.style.cssText = 'position:absolute;top:0;left:0;';
@@ -4691,14 +4813,14 @@ async function renderPaginaFactura(cont, {numero, titulo, fecha, cliente, metodo
   if(tipo === 'single'){
     flow = `${fxHeadHTML({numero, titulo, logo, fecha})}
       ${fxContactHTML()}
-      ${fxInfoHTML({fecha, cliente, metodoPago})}
+      ${fxInfoHTML({fecha, cliente, metodoPago, proveedorFoto})}
       ${prodsBlock}
       ${fxTotalHTML({total, descuento, domicilio, metodoPago})}
       ${fxFooterContentHTML()}`;
   } else if(tipo === 'first'){
     flow = `${fxHeadHTML({numero, titulo, logo, fecha})}
       ${fxContactHTML()}
-      ${fxInfoHTML({fecha, cliente, metodoPago})}
+      ${fxInfoHTML({fecha, cliente, metodoPago, proveedorFoto})}
       ${prodsBlock}`;
   } else if(tipo === 'mid'){
     flow = `${fxCompactHTML({numero, titulo, logo, fecha, pagina})}
@@ -4741,7 +4863,7 @@ async function renderPaginaFactura(cont, {numero, titulo, fecha, cliente, metodo
 }
 
 /** Construye el PDF de factura con paginación correcta (sin cortar filas, con encabezado repetido) */
-async function construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPago, items, descuento, total, numero, domicilio}){
+async function construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPago, items, descuento, total, numero, domicilio, proveedorFoto}){
   const { jsPDF } = window.jspdf;
   if(!window.html2canvas){
     showToast('⚠️ No se pudo generar la factura (falta html2canvas)', 'error');
@@ -4762,7 +4884,7 @@ async function construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPago
 
   const html = construirFacturaHTML({
     numero, titulo, fecha, cliente, telefono, metodoPago,
-    items: rows, descuento, total, logo, domicilio: domicilio || 0
+    items: rows, descuento, total, logo, domicilio: domicilio || 0, proveedorFoto: proveedorFoto || ''
   });
 
   const cont = document.createElement('div');
@@ -4842,7 +4964,7 @@ async function construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPago
     }
 
     const pdf = new jsPDF({orientation: 'portrait', unit: 'mm', format: 'a4'});
-    const datosBase = {numero, titulo, fecha, cliente, metodoPago, logo, total, descuento: descuento || 0, domicilio: domicilio || 0};
+    const datosBase = {numero, titulo, fecha, cliente, metodoPago, logo, total, descuento: descuento || 0, domicilio: domicilio || 0, proveedorFoto: proveedorFoto || ''};
     /* Cada página debe dibujar SOLO su subconjunto de filas (soluciona los
        productos duplicados que salían repetidos en cada hoja). Se renderizan de
        una en una para no saturar memoria y generar más rápido. */
