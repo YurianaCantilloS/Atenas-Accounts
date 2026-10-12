@@ -3164,20 +3164,18 @@ async function verCotizPDF(id){
   abrirModalFacturaCargando();
   try{
     const pdfBlob = await construirFacturaPDF({
+      cacheKey: `cot_${cot.id}_${items.length}_${cot.total}`,
       titulo: 'Cotización de Pedido',
       fecha, cliente: cot.proveedor_nombre || 'Proveedor', telefono: '',
       metodoPago: '', numero: numeroFactura(cot.id),
       etiqueta: 'Proveedor',
-      items: items.map(it => {
-        const prod = PRODUCTOS.find(p => p.id === it.producto_id);
-        return {
-          nombre: it.producto_nombre,
-          cantidad: it.cantidad,
-          precio: it.costo_unitario,
-          subtotal: it.costo_unitario * it.cantidad,
-          foto: it.foto_url || (prod && prod.foto_url) || ''
-        };
-      }),
+      items: items.map(it => ({
+        nombre: it.producto_nombre,
+        cantidad: it.cantidad,
+        precio: it.costo_unitario,
+        subtotal: it.costo_unitario * it.cantidad,
+        foto: fotoFactura(it)
+      })),
       descuento: 0, domicilio: 0, total: cot.total
     });
     mostrarFacturaPDF(pdfBlob, nombreArchivo);
@@ -4312,13 +4310,14 @@ async function confirmarAbonoCompra(){
   abrirModalFacturaCargando();
   try{
     const pdfBlob = await construirFacturaPDF({
+      cacheKey: `venta_${v.id}_${v.fecha}_${v.total}_${items.length}`,
       titulo: 'Comprobante de Venta',
       fecha, cliente: v.cliente_nombre || 'Sin definir', telefono: clienteTel,
       metodoPago, numero: numeroFactura(v.id),
       items: items.map(it => ({
         nombre: it.producto_nombre, cantidad: it.cantidad,
         precio: it.precio_unitario, subtotal: it.precio_unitario * it.cantidad,
-        foto: it.foto_url || null
+        foto: fotoFactura(it)
       })),
       descuento: v.descuento || 0, total: v.total
     });
@@ -4368,44 +4367,95 @@ async function logoMini(){
 /* Miniaturas de fotos de productos en caché: en la factura solo se ven a 46px,
    así que descargar la foto en resolución completa es el mayor cuello de botella al generar el PDF */
 const _fxImgMiniCache = new Map();
+
+/** URL reducida servida por el CDN (Cloudinary / Supabase Storage) */
+function _fxMiniaturaUrl(url){
+  if(/\/storage\/v1\/object\/public\//.test(url)){
+    /* El endpoint /object/public NO redimensiona: hay que usar /render/image/public.
+       Si el proyecto tiene deshabilitadas las transformaciones, el respaldo baja la
+       imagen original, así que nunca se queda sin foto. */
+    const base = url.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/');
+    return base + (base.includes('?') ? '&' : '?') + 'width=120&height=120&resize=contain';
+  }
+  if(/res\.cloudinary\.com\/.*\/image\/upload\//.test(url) && !/\/image\/upload\/[a-zA-Z0-9]+_/.test(url)){
+    /* Sin f_auto/q_auto: el modo automático de Cloudinary estorba la primera
+       carga. Con solo redimensionar la miniatura sale ~5x más rápido, que es
+       lo que se ve (46px) en la factura. */
+    return url.replace(/\/image\/upload\//, '/image/upload/w_200,h_200,c_fill/');
+  }
+  return url;
+}
+
+function _fxCargarImg(src){
+  return new Promise((res, rej) => {
+    const im = new Image();
+    im.onload = () => res(im);
+    im.onerror = rej;
+    im.src = src;
+  });
+}
+
+/** Descarga la imagen como blob (mismo origen) y la convierte a dataURL reducida.
+   Al usar un blob local el canvas nunca se "mancha" (CORS), así la foto SIEMPRE
+   aparece en la factura y html2canvas puede dibujarla. */
+async function _fxImagenDataURL(src, max){
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 9000);
+  let r;
+  try {
+    r = await fetch(src, { mode: 'cors', signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+  if(!r.ok) throw new Error('HTTP ' + r.status);
+  const blob = await r.blob();
+  const objUrl = URL.createObjectURL(blob);
+  try {
+    const img = await _fxCargarImg(objUrl);
+    const M = max || 200;
+    const w = img.naturalWidth || M, h = img.naturalHeight || M;
+    const esc = Math.min(1, M / Math.max(w, h));
+    const cw = Math.max(1, Math.round(w * esc));
+    const ch = Math.max(1, Math.round(h * esc));
+    const c = document.createElement('canvas');
+    c.width = cw; c.height = ch;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.drawImage(img, 0, 0, cw, ch);
+    return c.toDataURL('image/jpeg', 0.85);
+  } finally {
+    URL.revokeObjectURL(objUrl);
+  }
+}
+
 async function imagenMini(url){
   if(!url) return '';
   if(_fxImgMiniCache.has(url)) return _fxImgMiniCache.get(url);
-  /* Si la foto vive en Supabase Storage, descargamos una miniatura servida por su CDN
-     (mucho más rápido que bajar la foto en resolución completa) */
-  let src = url;
-  if(/\/storage\/v1\/object\/public\//.test(url)){
-    src = url + (url.includes('?') ? '&' : '?') + 'width=120&height=120&resize=contain';
-  } else if(/res\.cloudinary\.com\/.*\/image\/upload\//.test(url) && !/\/image\/upload\/[a-zA-Z0-9]+_/.test(url)){
-    /* Fotos en Cloudinary (nuevas): pedir una miniatura 200px ya redimensionada
-       y optimizada en el CDN en vez de bajar la foto en resolución completa */
-    src = url.replace(/\/image\/upload\//, '/image/upload/w_200,h_200,c_fill,q_auto,f_auto/');
-  }
-  let resultado = src;
+  const mini = _fxMiniaturaUrl(url);
+  let resultado = mini;
   try {
-    const img = await new Promise((res, rej) => {
-      const im = new Image();
-      im.crossOrigin = 'anonymous';
-      im.onload = () => res(im);
-      im.onerror = rej;
-      im.src = src;
-    });
-    const MAX = 200;
-    const w = img.naturalWidth || MAX, h = img.naturalHeight || MAX;
-    const esc = Math.min(1, MAX / Math.max(w, h));
-    if(esc < 1){
-      const c = document.createElement('canvas');
-      c.width = Math.max(1, Math.round(w * esc));
-      c.height = Math.max(1, Math.round(h * esc));
-      const ctx = c.getContext('2d');
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, c.width, c.height);
-      ctx.drawImage(img, 0, 0, c.width, c.height);
-      resultado = c.toDataURL('image/jpeg', 0.85);
-    }
-  } catch(e){ /* sin CORS u otro fallo: se usa la URL original */ }
+    resultado = await _fxImagenDataURL(mini, 200);
+  } catch(e){
+    try { resultado = await _fxImagenDataURL(url, 200); }
+    catch(e2){ resultado = ''; }
+  }
   _fxImgMiniCache.set(url, resultado);
   return resultado;
+}
+
+/** Mejor foto disponible para un ítem de factura. Las fotos viejas de Supabase
+   Storage ya no existen (se migraron a Cloudinary), así que si la guardada no es
+   de Cloudinary usamos la foto ACTUAL del producto para que siempre aparezca. */
+function fotoFactura(item){
+  if(!item) return '';
+  const guardada = item.foto || item.foto_url || '';
+  if(/^data:/.test(guardada) || /res\.cloudinary\.com\//.test(guardada)) return guardada;
+  const nombre = item.producto_nombre || item.nombre || '';
+  const prod = item.producto_id
+    ? PRODUCTOS.find(p => p.id === item.producto_id)
+    : PRODUCTOS.find(p => p.nombre === nombre);
+  return (prod && prod.foto_url) || guardada;
 }
 
 /** Iconos lineales usados en la factura (paleta rosada) */
@@ -4688,7 +4738,14 @@ async function esperarAssets(cont){
     fontProms.push(document.fonts.load('800 18px "Inter"'));
     fontProms.push(document.fonts.load('400 18px "Great Vibes"'));
   }
-  await Promise.all(fontProms);
+  /* Si las fuentes aún no han cargado solo esperamos medio segundo:
+     nunca bloquea la factura en sesiones nuevas o muy lentas. */
+  if(fontProms.length){
+    await Promise.race([
+      Promise.all(fontProms),
+      new Promise(r => setTimeout(r, 600))
+    ]);
+  }
 }
 
 /** Renderiza UNA página de la factura a canvas (210×297mm exactos) */
@@ -4737,14 +4794,40 @@ async function renderPaginaFactura(cont, datos, tipo, pagina, escala){
     scrollY: 0,
     windowWidth: 1024,
     windowHeight: Math.max(page.offsetHeight, 1200),
+    imageTimeout: 5000,
     logging: false
   });
   page.remove();
   return canvas;
 }
 
-/** Construye el PDF de factura con paginación correcta (sin cortar filas, con encabezado repetido) */
-async function construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPago, items, descuento, total, numero, domicilio, proveedorFoto, etiqueta}){
+/* Cola de generación: las facturas se arman de una en una. Antes, abrir dos a la
+   vez duplicaba el trabajo de html2canvas en el hilo principal y congelaba el navegador. */
+let _fxCadena = Promise.resolve();
+function _fxEnCola(fn){
+  const siguiente = _fxCadena.then(fn, fn);
+  _fxCadena = siguiente.catch(() => {});
+  return siguiente;
+}
+
+/* PDFs ya generados en esta sesión: reabrir una factura es instantáneo. */
+const _fxFacturaCache = new Map();
+
+/** Genera (o reutiliza) el PDF de una factura sin bloquear el navegador */
+async function construirFacturaPDF(opts){
+  const cacheKey = opts && opts.cacheKey;
+  if(cacheKey && _fxFacturaCache.has(cacheKey)){
+    return { blob: _fxFacturaCache.get(cacheKey), canvases: [] };
+  }
+  return _fxEnCola(async () => {
+    if(cacheKey && _fxFacturaCache.has(cacheKey)){
+      return { blob: _fxFacturaCache.get(cacheKey), canvases: [] };
+    }
+    return _construirFacturaPDF(opts);
+  });
+}
+
+async function _construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPago, items, descuento, total, numero, domicilio, proveedorFoto, etiqueta, cacheKey}){
   const { jsPDF } = window.jspdf;
   if(!window.html2canvas){
     showToast('⚠️ No se pudo generar la factura (falta html2canvas)', 'error');
@@ -4752,12 +4835,12 @@ async function construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPago
   }
 
   // Resolución de renderizado: menor = mucho más rápido sin notarse en pantalla.
-  // El diseño es plano (pocos degradados), así que 1.6 soporta la nitidez sin costo extra.
+  // En pantalla el PDF se ve a ~1200px como máximo, así que 1.3 da nitidez de sobra.
   const isMobile = window.innerWidth <= 768;
-  const ESCALA = isMobile ? 1.3 : 1.6;
+  const ESCALA = isMobile ? 1.15 : 1.3;
 
   showToast('⏳ Generando factura…', 'info');
-  const logo = await logoMini();
+  const logoP = logoMini();
   const rows = await Promise.all((items || []).map(async it => ({
     nombre: it.nombre,
     cantidad: it.cantidad,
@@ -4765,6 +4848,7 @@ async function construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPago
     subtotal: it.subtotal,
     foto: await imagenMini(it.foto || '')
   })));
+  const logo = await logoP;
 
   const html = construirFacturaHTML({
     numero, titulo, fecha, cliente, metodoPago, items: rows,
@@ -4855,13 +4939,17 @@ async function construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPago
       canvases.push(await renderPaginaFactura(
         cont, {...datosBase, items: lp.rows.map(ii => rows[ii])}, lp.type, String(canvases.length + 1), ESCALA
       ));
+      /* Deja respirar al navegador entre páginas para que no se congele en facturas largas */
+      await new Promise(r => setTimeout(r, 0));
     }
     canvases.forEach((canvas, p) => {
       if(p > 0) pdf.addPage();
       pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297);
     });
 
-    return { blob: pdf.output('blob'), canvases };
+    const blob = pdf.output('blob');
+    if(cacheKey) _fxFacturaCache.set(cacheKey, blob);
+    return { blob, canvases };
   } finally {
     cont.remove();
   }
@@ -6738,13 +6826,14 @@ async function verFacturaSimDB(id){
     const domItem = items.find(esItemDomicilio) || null;
     const itemsReales = items.filter(it => !esItemDomicilio(it));
     const pdfBlob = await construirFacturaPDF({
+      cacheKey: `sim_${s.id}_${itemsReales.length}_${s.total}`,
       titulo: 'Cotización de Factura',
       fecha, cliente: s.cliente_nombre || 'Sin definir', telefono: '',
       metodoPago: '', numero: numeroFactura(s.id),
       items: itemsReales.map(it => ({
         nombre: it.nombre, cantidad: it.cantidad,
         precio: it.precio, subtotal: it.subtotal,
-        foto: it.foto_url || null
+        foto: fotoFactura(it)
       })),
       descuento: 0, domicilio: domItem ? domItem.subtotal : 0, total: s.total
     });
