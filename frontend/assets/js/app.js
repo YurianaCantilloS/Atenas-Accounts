@@ -109,6 +109,7 @@ function showView(name){
   const fabResumen = document.querySelector('.fab-resumen');
   if(fabResumen) fabResumen.style.display = name === 'caja' ? 'none' : 'flex';
   if(name === 'envios') cargarEnvios();
+  if(name === 'inversiones') cargarInversionistas();
 
   // La alerta roja de cierre de mes NO se muestra en la vista Caja
   actualizarVisibilidadBannerCierre();
@@ -2182,7 +2183,7 @@ function siguienteReferencia(){
    // Precalienta logo + fuentes de la factura en segundo plano: "Ver factura" abre mucho más rápido
    logoMini().catch(() => {});
    if(document.fonts && document.fonts.load){
-     ['600 11px "Poppins"', '700 12px "Poppins"', '800 30px "Poppins"', '400 34px "Great Vibes"']
+     ['600 11px "Inter"', '700 12px "Inter"', '800 18px "Inter"', '400 18px "Great Vibes"']
        .forEach(f => { try{ document.fonts.load(f); }catch(e){} });
    }
    await cargarProductos(); // primero siempre
@@ -3162,12 +3163,11 @@ async function verCotizPDF(id){
 
   abrirModalFacturaCargando();
   try{
-    const provFoto = prov && prov.foto_url ? await imagenMini(prov.foto_url) : '';
     const pdfBlob = await construirFacturaPDF({
       titulo: 'Cotización de Pedido',
       fecha, cliente: cot.proveedor_nombre || 'Proveedor', telefono: '',
       metodoPago: '', numero: numeroFactura(cot.id),
-      proveedorFoto: provFoto,
+      etiqueta: 'Proveedor',
       items: items.map(it => {
         const prod = PRODUCTOS.find(p => p.id === it.producto_id);
         return {
@@ -4346,10 +4346,18 @@ async function logoMini(){
   try {
     const img = new Image();
     await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = full; });
-    const S = 512;
+    const S = 600;
     const c = document.createElement('canvas');
     c.width = S; c.height = S;
-    c.getContext('2d').drawImage(img, 0, 0, S, S);
+    const ctx = c.getContext('2d');
+    const w = img.naturalWidth || S, h = img.naturalHeight || S;
+    const esc = Math.min(S / w, S / h);
+    if(esc > 1){
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+    }
+    const dw = w * esc, dh = h * esc;
+    ctx.drawImage(img, (S - dw) / 2, (S - dh) / 2, dw, dh);
     _fxLogoData = c.toDataURL('image/png');
   } catch(e){
     _fxLogoData = full;
@@ -4368,6 +4376,10 @@ async function imagenMini(url){
   let src = url;
   if(/\/storage\/v1\/object\/public\//.test(url)){
     src = url + (url.includes('?') ? '&' : '?') + 'width=120&height=120&resize=contain';
+  } else if(/res\.cloudinary\.com\/.*\/image\/upload\//.test(url) && !/\/image\/upload\/[a-zA-Z0-9]+_/.test(url)){
+    /* Fotos en Cloudinary (nuevas): pedir una miniatura 200px ya redimensionada
+       y optimizada en el CDN en vez de bajar la foto en resolución completa */
+    src = url.replace(/\/image\/upload\//, '/image/upload/w_200,h_200,c_fill,q_auto,f_auto/');
   }
   let resultado = src;
   try {
@@ -4396,394 +4408,271 @@ async function imagenMini(url){
   return resultado;
 }
 
-/** Iconos lineales usados en la factura */
+/** Iconos lineales usados en la factura (paleta rosada) */
 function fxIcon(nombre, tam, color){
   const s = tam || 14;
-  const c = color || '#E91E83';
-  const svg = {
-    pin:   `<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>`,
-    tel:   `<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/>`,
-    ig:    `<rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>`,
-    doc:   `<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>`,
-    cal:   `<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>`,
-    user:  `<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>`,
-    card:  `<rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>`,
-    tag:   `<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>`
+  const c = color || '#EC2388';
+  const path = {
+    pin:    '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
+    tel:    '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/>',
+    ig:     '<rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>',
+    doc:    '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
+    cal:    '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+    user:   '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    card:   '<rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>',
+    bag:    '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>',
+    shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+    truck:  '<rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>',
+    star:   '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+    tag:    '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>'
   }[nombre] || '';
-  return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${svg}</svg>`;
+  return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="' + c + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + path + '</svg>';
 }
 
 /* ============================================================
-   FACTURA PREMIUM — Light Glassmorphism + Soft UI
-   Bloques reutilizables para construir cada página del PDF.
+   FACTURA — diseño compacto en tonos rosados
+   Comprobante de venta vertical para PDF, impresión y vista
+   digital. Se genera en el navegador con jsPDF + html2canvas.
    ============================================================ */
 
 /** Bloque de estilos de la factura */
 function fxInvoiceStyle(){
   return `
   :root{
-    --fx-rosa:#E91E83; --fx-rosa2:#F22991; --fx-rosa-deep:#C2185B;
-    --fx-pastel:#FCE7F3; --fx-soft:#FFF0F8; --fx-borde:#F6CBE4;
-    --fx-lavanda:#A78BFA; --fx-lavanda-soft:#F3EFFF;
-    --fx-texto:#232A3C; --fx-texto2:#8A93A6;
-    --fx-sombra:0 10px 30px rgba(233,30,131,.10);
+    --fx-fucsia:#EC2388; --fx-rosa-medio:#F3A6CB; --fx-rosa-claro:#FCE8F2;
+    --fx-rosa-borde:#F5C4DC; --fx-texto:#28364A; --fx-texto2:#697386;
   }
-  *{margin:0;padding:0;box-sizing:border-box;}
-  body{font-family:'Poppins',sans-serif;background:#fff;color:var(--fx-texto);}
-  .fx-page{
-    position:relative;width:210mm;height:297mm;
-    background:linear-gradient(180deg,#FFFFFF 0%,#FFFDFE 100%);
-    overflow:hidden;padding:30px 32px 40px;
-  }
-  .fx-flow{position:relative;z-index:3;display:flex;flex-direction:column;gap:16px;height:100%;}
+  .fx-page,.fx-page *,.fx-page *::before,.fx-page *::after{box-sizing:border-box;}
+  .fx-page{position:relative;width:210mm;height:297mm;background:#FFFFFF;overflow:hidden;
+    padding:12mm 13mm 11mm;font-family:'Inter','Lato',Arial,sans-serif;color:var(--fx-texto);
+    -webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .fx-flow{display:flex;flex-direction:column;gap:12px;height:100%;}
 
-  /* ---- decoraciones suaves ---- */
-  .fx-topblob{position:absolute;top:-70px;left:-60px;z-index:1;width:230px;height:170px;
-    background:linear-gradient(135deg,#FDEBF6 0%,#F8E0F1 100%);border-radius:58% 42% 60% 40%/55% 48% 52% 45%;opacity:.85;}
-  .fx-topblob2{position:absolute;top:10px;left:-24px;z-index:1;width:80px;height:60px;
-    background:linear-gradient(135deg,#F5C2E0 0%,#F0B0D8 100%);border-radius:50% 50% 42% 58%/58% 44% 56% 42%;opacity:.45;}
-  .fx-dots{position:absolute;top:18px;right:22px;z-index:1;width:60px;height:60px;
-    background-image:radial-gradient(circle,rgba(233,30,131,.26) 1.6px,transparent 1.8px);background-size:13px 13px;opacity:.85;}
-  .fx-footer-decor{position:absolute;left:0;right:0;bottom:0;z-index:1;height:130px;pointer-events:none;}
-  .fx-blob-a{position:absolute;bottom:-40px;left:5%;width:150px;height:150px;border-radius:50%;
-    background:radial-gradient(circle at 35% 35%,rgba(200,240,240,.9),rgba(200,240,240,.18) 70%);}
-  .fx-blob-l{position:absolute;bottom:-36px;left:43%;width:130px;height:130px;border-radius:50%;
-    background:radial-gradient(circle at 40% 40%,rgba(237,233,254,.95),rgba(237,233,254,.18) 72%);}
-  .fx-blob-r{position:absolute;bottom:-32px;right:2%;width:150px;height:150px;border-radius:50%;
-    background:radial-gradient(circle at 30% 30%,rgba(249,168,212,.85),rgba(249,168,212,.15) 72%);}
-  .fx-wave{position:absolute;left:-4%;width:108%;border-radius:50% 50% 0 0/100% 100% 0 0;}
-  .fx-wave-1{bottom:-2px;height:36px;background:#E9B8DC;opacity:.5;}
-  .fx-wave-2{bottom:-2px;height:25px;background:#F3B8DA;opacity:.55;}
-  .fx-wave-3{bottom:-2px;height:13px;background:#F9CFE8;opacity:.7;}
+  /* ── Encabezado ── */
+  .fx-head{display:flex;justify-content:space-between;align-items:center;gap:14px;}
+  .fx-brand{display:flex;align-items:center;gap:13px;min-width:0;flex:1;}
+  .fx-logo-circle{width:42mm;height:42mm;flex-shrink:0;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;padding:4mm;
+    background:linear-gradient(135deg,#D9F4F1 0%,#FFFFFF 52%,#EDE7FB 100%);
+    border:1px solid var(--fx-rosa-borde);}
+  .fx-logo-circle img{width:100%;height:100%;object-fit:contain;border-radius:50%;}
+  .fx-vline{width:1px;align-self:stretch;background:var(--fx-rosa-borde);margin:2mm 0;}
+  .fx-brand-txt{display:flex;flex-direction:column;gap:3px;min-width:0;}
+  .fx-brand-name{font-size:15pt;font-weight:800;letter-spacing:2.5px;color:var(--fx-texto);line-height:1.05;}
+  .fx-brand-sub{font-size:6.6pt;font-weight:600;letter-spacing:1.6px;color:var(--fx-texto2);text-transform:uppercase;}
+  .fx-doc{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;}
+  .fx-doc-badge{background:var(--fx-rosa-claro);color:var(--fx-fucsia);
+    border:1px solid var(--fx-rosa-borde);border-radius:5px;
+    font-size:7.5pt;font-weight:800;letter-spacing:2px;padding:4px 13px;text-transform:uppercase;}
+  .fx-doc-num{font-size:16pt;font-weight:800;color:var(--fx-texto);letter-spacing:.5px;}
 
-  /* ---- encabezado ---- */
-  .fx-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;}
-  .fx-brand{display:flex;align-items:center;gap:12px;min-width:0;flex:1;}
-  .fx-brand-txt{display:flex;flex-direction:column;gap:5px;min-width:0;}
-  .fx-brand-name{font-size:19px;font-weight:800;color:var(--fx-rosa);letter-spacing:2px;line-height:1.1;white-space:nowrap;}
-  .fx-brand-sub{font-size:8px;font-weight:700;letter-spacing:3.5px;color:var(--fx-texto2);text-transform:uppercase;}
-  .fx-logo-box{
-    width:120px;height:120px;flex-shrink:0;border-radius:24px;
-    background:rgba(255,255,255,.85);border:1px solid rgba(233,30,131,.18);
-    box-shadow:var(--fx-sombra);
-    display:flex;align-items:center;justify-content:center;padding:12px;
-    backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
-  }
-  .fx-logo{width:100%;height:100%;object-fit:contain;}
-  .fx-comp{display:flex;flex-direction:column;align-items:flex-end;gap:10px;flex-shrink:0;}
-  .fx-comp-badge{
-    display:inline-flex;align-items:center;gap:8px;
-    background:linear-gradient(135deg,#E91E83,#F22991);color:#fff;
-    font-size:11px;font-weight:700;letter-spacing:2px;
-    padding:9px 15px;border-radius:999px;box-shadow:0 8px 20px rgba(233,30,131,.30);
-  }
-  .fx-comp-meta{
-    display:flex;align-items:center;gap:10px;
-    background:rgba(255,255,255,.82);border:1px solid var(--fx-borde);
-    border-radius:14px;padding:8px 14px;box-shadow:0 4px 14px rgba(23,32,58,.06);
-    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
-    max-width:100%;flex-wrap:wrap;justify-content:flex-end;
-  }
-  .fx-comp-num{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:800;}
-  .fx-comp-num .lbl{font-size:8.5px;letter-spacing:2px;color:var(--fx-texto2);font-weight:700;}
-  .fx-comp-num .n{color:var(--fx-rosa);letter-spacing:.5px;}
-  .fx-comp-fecha{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--fx-texto2);font-weight:600;border-left:1px solid #F6E7F1;padding-left:10px;}
+  /* ── Contacto ── */
+  .fx-contact{display:flex;flex-wrap:wrap;justify-content:center;gap:5px 20px;
+    border-top:1px solid var(--fx-rosa-borde);border-bottom:1px solid var(--fx-rosa-borde);padding:6px 4px;}
+  .fx-contact span{display:inline-flex;align-items:center;gap:5px;font-size:8pt;color:var(--fx-texto2);font-weight:500;}
+  .fx-contact span svg{flex-shrink:0;}
 
-  /* ---- contacto ---- */
-  .fx-contact{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;}
-  .fx-contact-pill{
-    display:inline-flex;align-items:center;gap:6px;
-    background:rgba(255,255,255,.7);border:1px solid rgba(233,30,131,.14);
-    border-radius:999px;padding:6px 13px;font-size:10.5px;font-weight:600;color:#5A6478;
-    backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
-  }
+  /* ── Información del pedido ── */
+  .fx-info{display:flex;background:var(--fx-rosa-claro);border:1px solid var(--fx-rosa-borde);
+    border-radius:9px;overflow:hidden;}
+  .fx-info-col{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:3px;padding:9px 8px;text-align:center;}
+  .fx-info-col + .fx-info-col{border-left:1px solid var(--fx-rosa-borde);}
+  .fx-info-label{font-size:6.4pt;font-weight:800;letter-spacing:1.4px;color:var(--fx-texto2);text-transform:uppercase;}
+  .fx-info-val{font-size:9.5pt;font-weight:700;color:var(--fx-texto);line-height:1.2;word-break:break-word;}
 
-  /* ---- tarjeta información ---- */
-  .fx-info{
-    display:flex;border-radius:20px;overflow:hidden;
-    background:rgba(255,255,255,.78);border:1px solid rgba(233,30,131,.16);
-    box-shadow:var(--fx-sombra);
-    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-  }
-  .fx-info-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;padding:18px 12px;text-align:center;}
-  .fx-info-col+.fx-info-col{border-left:1px solid rgba(233,30,131,.10);}
-  .fx-ico{
-    width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;
-    background:linear-gradient(135deg,rgba(252,231,243,.9),rgba(243,239,255,.9));
-    box-shadow:0 4px 12px rgba(233,30,131,.12);
-  }
-  .fx-info-label{font-size:8.5px;font-weight:700;letter-spacing:2.2px;color:var(--fx-texto2);}
-  .fx-info-val{font-size:13px;font-weight:700;color:var(--fx-texto);line-height:1.35;word-break:break-word;max-width:100%;}
-  .fx-info-val-prov{display:inline-flex;align-items:center;justify-content:center;gap:8px;}
-  .fx-prov-pic{width:34px;height:34px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2px solid rgba(233,30,131,.28);box-shadow:0 2px 8px rgba(233,30,131,.18);background:#fff;}
-  .fx-prov-pic img{width:100%;height:100%;object-fit:cover;display:block;}
+  /* ── Tabla de productos ── */
+  .fx-prods{border:1px solid var(--fx-rosa-borde);border-radius:9px;overflow:hidden;}
+  .fx-prods-head{display:flex;align-items:center;background:var(--fx-rosa-medio);color:#5B2440;
+    font-size:8pt;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:8px 12px;}
+  .fx-prods-head>div,.fx-prow>div{box-sizing:border-box;}
+  .fx-prods-head .c,.fx-pcol{flex:0 0 48%;text-align:left;}
+  .fx-prods-head .n,.fx-pnum{flex:0 0 12%;text-align:center;}
+  .fx-prods-head .p,.fx-pprecio{flex:0 0 20%;text-align:right;}
+  .fx-prods-head .t,.fx-ptotal{flex:0 0 20%;text-align:right;}
+  .fx-prow{display:flex;align-items:center;padding:7px 12px;border-top:1px solid var(--fx-rosa-claro);}
+  .fx-pcol{display:flex;align-items:center;gap:8px;min-width:0;}
+  .fx-pimgwrap{width:12mm;height:12mm;flex-shrink:0;border-radius:4px;background:var(--fx-rosa-claro);
+    display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .fx-pimg{width:100%;height:100%;object-fit:cover;}
+  .fx-pimg-ph{display:flex;align-items:center;justify-content:center;width:100%;height:100%;}
+  .fx-pname{font-size:8.8pt;font-weight:600;color:var(--fx-texto);line-height:1.25;word-break:break-word;}
+  .fx-pnum{font-size:9pt;font-weight:700;color:var(--fx-texto);}
+  .fx-pprecio{font-size:8.8pt;color:var(--fx-texto2);}
+  .fx-ptotal{font-size:9.5pt;font-weight:800;color:var(--fx-fucsia);}
 
-  /* ---- productos ---- */
-  .fx-prods{
-    background:rgba(255,255,255,.82);border:1px solid rgba(233,30,131,.16);
-    border-radius:20px;overflow:hidden;box-shadow:0 6px 22px rgba(23,32,58,.05);
-    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
-  }
-  .fx-prods-head{
-    display:flex;align-items:center;gap:8px;
-    background:linear-gradient(135deg,#E91E83,#F22991);color:#fff;
-    font-size:9.5px;font-weight:700;letter-spacing:1.8px;padding:11px 16px;
-  }
-  .fx-prods-head .c{flex:1;}
-  .fx-prods-head .n{width:52px;text-align:center;}
-  .fx-prods-head .p{width:96px;text-align:right;}
-  .fx-prods-head .t{width:98px;text-align:right;}
-  .fx-prow{display:flex;align-items:center;gap:8px;padding:11px 16px;break-inside:avoid;page-break-inside:avoid;}
-  .fx-prow+.fx-prow{border-top:1px solid rgba(233,30,131,.09);}
-  .fx-prow .fx-pcol{flex:1;display:flex;align-items:center;gap:12px;min-width:0;}
-  .fx-pimgwrap{width:46px;height:46px;flex-shrink:0;}
-  .fx-pimg{width:46px;height:46px;object-fit:cover;border-radius:14px;border:1px solid #F6D3E8;background:#FFF5FA;}
-  .fx-pimg-ph{display:flex;align-items:center;justify-content:center;border-radius:14px;
-    background:linear-gradient(135deg,#FDE7F3,#F1E9FE);box-shadow:inset 0 0 0 1px rgba(233,30,131,.14);}
-  .fx-pinfo{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
-  .fx-pname{font-size:12.5px;font-weight:600;color:var(--fx-texto);line-height:1.3;word-break:break-word;}
-  .fx-pdesc{font-size:9.5px;color:var(--fx-texto2);}
-  .fx-prow .fx-pnum{width:52px;text-align:center;font-size:12.5px;font-weight:700;color:var(--fx-texto);}
-  .fx-prow .fx-pprecio{width:96px;text-align:right;font-size:11.5px;color:var(--fx-texto2);font-weight:600;}
-  .fx-prow .fx-ptotal{width:98px;text-align:right;font-size:12.5px;font-weight:800;color:var(--fx-rosa);}
+  /* ── Domicilio y total ── */
+  .fx-tail{display:flex;flex-direction:column;gap:8px;}
+  .fx-dom{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:var(--fx-rosa-claro);border:1px solid var(--fx-rosa-borde);border-radius:9px;padding:8px 14px;}
+  .fx-dom-label{display:inline-flex;align-items:center;gap:7px;font-size:7.4pt;font-weight:800;
+    letter-spacing:1.6px;color:var(--fx-texto2);text-transform:uppercase;}
+  .fx-dom-val{font-size:10pt;font-weight:800;color:var(--fx-texto);}
+  .fx-total-wrap{margin-left:45%;}
+  .fx-desc{display:flex;justify-content:space-between;font-size:8pt;color:var(--fx-texto2);padding:0 4px 6px;}
+  .fx-total{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    background:var(--fx-rosa-claro);border:1px solid var(--fx-rosa-borde);border-radius:9px;padding:11px 16px;}
+  .fx-total-label{font-size:8pt;font-weight:800;letter-spacing:1.6px;color:var(--fx-fucsia);text-transform:uppercase;}
+  .fx-total-num{font-size:18pt;font-weight:800;color:var(--fx-fucsia);
+    border-left:1px solid var(--fx-rosa-borde);padding-left:14px;}
 
-  /* ---- total ---- */
-  .fx-total{
-    display:flex;align-items:center;justify-content:space-between;gap:12px;
-    background:linear-gradient(135deg,rgba(252,231,243,.95),rgba(255,240,248,.9));
-    border:1px solid rgba(233,30,131,.25);border-radius:20px;padding:16px 22px;
-    box-shadow:0 8px 24px rgba(233,30,131,.14);
-  }
-  .fx-total-left{display:flex;align-items:center;gap:14px;}
-  .fx-total-tag{width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.95);
-    display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(233,30,131,.18);}
-  .fx-total-txt{display:flex;flex-direction:column;gap:3px;}
-  .fx-total-label{font-size:9.5px;font-weight:800;letter-spacing:2.6px;color:var(--fx-rosa);}
-  .fx-total-num{font-size:30px;font-weight:800;color:var(--fx-rosa);line-height:1;letter-spacing:.5px;}
-  .fx-descuento{font-size:10.5px;color:var(--fx-texto2);font-weight:600;}
-  .fx-descuento span{color:#D11A70;font-weight:700;}
-  .fx-domicilio{display:flex;align-items:center;justify-content:space-between;gap:10px;
-    background:#FFF3D6;border:1px solid #F5C542;border-radius:14px;
-    padding:11px 18px;font-size:12.5px;font-weight:800;color:#8A5B00;
-    box-shadow:0 4px 12px rgba(245,197,66,.18);}
-  .fx-domicilio-label{display:inline-flex;align-items:center;gap:8px;}
-  .fx-domicilio-valor{font-size:15px;font-weight:900;}
+  /* ── Pie de página ── */
+  .fx-foot{margin-top:auto;border-top:1px solid var(--fx-rosa-borde);padding-top:9px;}
+  .fx-foot-row{display:flex;align-items:center;}
+  .fx-foot-col{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
+    font-size:7.4pt;color:var(--fx-texto2);font-weight:500;text-align:center;padding:0 6px;}
+  .fx-foot-col + .fx-foot-col{border-left:1px solid var(--fx-rosa-borde);}
+  .fx-foot-col svg{flex-shrink:0;}
+  .fx-gracias{text-align:center;margin-top:9px;font-size:17pt;line-height:1;color:var(--fx-fucsia);font-family:'Great Vibes',cursive;}
 
-  /* ---- pago ---- */
-  .fx-pago-wrap{display:flex;justify-content:center;}
-  .fx-pago{display:inline-flex;align-items:center;gap:7px;
-    background:var(--fx-pastel);color:var(--fx-rosa);
-    font-size:12px;font-weight:700;letter-spacing:.4px;
-    padding:9px 20px;border-radius:999px;box-shadow:0 4px 14px rgba(233,30,131,.14);}
-
-  /* ---- gracias / redes ---- */
-  .fx-gracias{display:flex;flex-direction:column;align-items:center;gap:4px;padding-top:2px;}
-  .fx-gracias-txt{font-family:'Great Vibes',cursive;font-size:34px;color:var(--fx-texto);line-height:1.15;}
-  .fx-heart{font-size:20px;color:var(--fx-rosa);line-height:1;}
-  .fx-social{display:flex;align-items:center;justify-content:center;gap:8px;padding-top:2px;}
-  .fx-social-ico{display:flex;}
-  .fx-social-handle{font-size:12.5px;font-weight:700;color:var(--fx-texto);letter-spacing:.3px;}
-
-  /* ---- encabezado reducido (páginas 2+) ---- */
-  .fx-compact{
-    display:flex;align-items:center;gap:14px;
-    background:rgba(255,255,255,.8);border:1px solid rgba(233,30,131,.14);
-    border-radius:18px;padding:10px 16px;box-shadow:0 4px 16px rgba(23,32,58,.05);
-    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
-  }
-  .fx-logo-sm{width:46px;height:46px;object-fit:contain;flex-shrink:0;}
-  .fx-compact-brand{font-size:13px;font-weight:800;color:var(--fx-rosa);letter-spacing:1.5px;flex-shrink:0;white-space:nowrap;}
-  .fx-compact-mid{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0;}
-  .fx-compact-badge{font-size:10.5px;font-weight:800;letter-spacing:2px;color:var(--fx-rosa);}
-  .fx-compact-meta{font-size:10.5px;font-weight:600;color:var(--fx-texto2);}`;
+  /* ── Encabezado compacto (páginas 2+) ── */
+  .fx-compact{display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--fx-rosa-borde);padding-bottom:8px;}
+  .fx-compact-logo{width:16mm;height:16mm;object-fit:contain;border-radius:50%;flex-shrink:0;
+    background:linear-gradient(135deg,#D9F4F1 0%,#FFFFFF 52%,#EDE7FB 100%);padding:1.7mm;border:1px solid var(--fx-rosa-borde);}
+  .fx-compact-brand{font-size:11pt;font-weight:800;letter-spacing:1.6px;color:var(--fx-texto);}
+  .fx-compact-mid{flex:1;display:flex;flex-direction:column;min-width:0;}
+  .fx-compact-badge{font-size:6.8pt;font-weight:800;letter-spacing:2px;color:var(--fx-fucsia);text-transform:uppercase;}
+  .fx-compact-meta{font-size:8pt;color:var(--fx-texto2);}
+  `;
 }
 
 /** Encabezado completo (página 1) */
-function fxHeadHTML({numero, titulo, logo, fecha}){
-  return `
-    <div class="fx-head">
-      <div class="fx-brand">
-        <div class="fx-logo-box">
-          ${logo ? `<img src="${logo}" alt="Atenas Style Shop" class="fx-logo">` : ''}
-        </div>
-        <div class="fx-brand-txt">
-          <span class="fx-brand-name">ATENAS STYLE SHOP</span>
-          <span class="fx-brand-sub">Moda · Accesorios</span>
-        </div>
-      </div>
-      <div class="fx-comp">
-        <div class="fx-comp-badge">${fxIcon('doc', 13, '#fff')} ${(titulo || 'Comprobante de Venta').toUpperCase()}</div>
-        <div class="fx-comp-meta">
-          <div class="fx-comp-num"><span class="lbl">FACTURA</span> <span class="n">N° ${numero || '000000'}</span></div>
-          <div class="fx-comp-fecha">${fxIcon('cal', 12, '#E91E83')} ${fecha || ''}</div>
-        </div>
-      </div>
-    </div>`;
+function fxHeadHTML({numero, logo}){
+  return '<div class="fx-head">' +
+    '<div class="fx-brand">' +
+      '<div class="fx-logo-circle">' + (logo ? '<img src="' + logo + '" alt="Atenas Style Shop">' : '') + '</div>' +
+      '<div class="fx-vline"></div>' +
+      '<div class="fx-brand-txt">' +
+        '<span class="fx-brand-name">ATENAS STYLE SHOP</span>' +
+        '<span class="fx-brand-sub">Bodega mayorista de productos de belleza</span>' +
+      '</div>' +
+    '</div>' +
+    '<div class="fx-doc">' +
+      '<span class="fx-doc-badge">Factura</span>' +
+      '<span class="fx-doc-num">N° ' + (numero || '000000') + '</span>' +
+    '</div>' +
+  '</div>';
 }
 
-/** Encabezado reducido (páginas 2+) */
-function fxCompactHTML({numero, titulo, logo, fecha, pagina}){
-  return `
-    <div class="fx-compact">
-      ${logo ? `<img src="${logo}" alt="Atenas" class="fx-logo-sm">` : ''}
-      <span class="fx-compact-brand">ATENAS STYLE SHOP</span>
-      <div class="fx-compact-mid">
-        <span class="fx-compact-badge">${(titulo || 'Comprobante de Venta').toUpperCase()}</span>
-        <span class="fx-compact-meta">N° ${numero || '000000'} · ${fecha || ''}${pagina ? ` · Pág. ${pagina}` : ''}</span>
-      </div>
-    </div>`;
+/** Encabezado compacto (páginas 2+) */
+function fxCompactHTML({numero, logo, pagina}){
+  return '<div class="fx-compact">' +
+    (logo ? '<img class="fx-compact-logo" src="' + logo + '" alt="Atenas Style Shop">' : '') +
+    '<div class="fx-compact-mid">' +
+      '<span class="fx-compact-brand">ATENAS STYLE SHOP</span>' +
+      '<span class="fx-compact-badge">Factura N° ' + (numero || '000000') + '</span>' +
+    '</div>' +
+    '<span class="fx-compact-meta">Página ' + (pagina || '1') + '</span>' +
+  '</div>';
 }
 
 /** Línea de contacto (ciudad · teléfono · instagram) */
 function fxContactHTML(){
-  return `
-    <div class="fx-contact">
-      <span class="fx-contact-pill">${fxIcon('pin', 12, '#E91E83')} Cartagena, Colombia</span>
-      <span class="fx-contact-pill">${fxIcon('tel', 12, '#E91E83')} 318 434 6975</span>
-      <span class="fx-contact-pill">${fxIcon('ig', 12, '#E91E83')} @atenas.style_ctg</span>
-    </div>`;
+  return '<div class="fx-contact">' +
+    '<span>' + fxIcon('pin', 12) + 'Cartagena, Colombia</span>' +
+    '<span>' + fxIcon('tel', 12) + '318 434 6975</span>' +
+    '<span>' + fxIcon('ig', 12) + '@atenas.style_ctg</span>' +
+  '</div>';
 }
 
-/** Tarjeta glassmorphism: Fecha | Cliente/Proveedor | Método de pago */
-function fxInfoHTML({fecha, cliente, metodoPago, proveedorFoto}){
-  const etiqueta = proveedorFoto ? 'PROVEEDOR' : 'CLIENTE';
-  return `
-    <div class="fx-info">
-      <div class="fx-info-col">
-        <span class="fx-ico">${fxIcon('cal', 16, '#E91E83')}</span>
-        <span class="fx-info-label">FECHA</span>
-        <span class="fx-info-val">${fecha || '—'}</span>
-      </div>
-      <div class="fx-info-col">
-        <span class="fx-ico">${fxIcon('user', 16, '#E91E83')}</span>
-        <span class="fx-info-label">${etiqueta}</span>
-        <span class="fx-info-val fx-info-val-prov">${proveedorFoto ? `<span class="fx-prov-pic"><img src="${proveedorFoto}" alt=""></span>` : ''}<span>${cliente || '—'}</span></span>
-      </div>
-      <div class="fx-info-col">
-        <span class="fx-ico">${fxIcon('card', 16, '#E91E83')}</span>
-        <span class="fx-info-label">MÉTODO DE PAGO</span>
-        <span class="fx-info-val">${metodoPago || '—'}</span>
-      </div>
-    </div>`;
+/** Tarjeta de información: Fecha | Cliente/Proveedor | Método de pago */
+function fxInfoHTML({fecha, cliente, metodoPago, etiqueta}){
+  const col = (ico, label, val) => '<div class="fx-info-col">' +
+    fxIcon(ico, 15) +
+    '<span class="fx-info-label">' + label + '</span>' +
+    '<span class="fx-info-val">' + (val || '—') + '</span>' +
+  '</div>';
+  return '<div class="fx-info">' +
+    col('cal', 'Fecha', fecha) +
+    col('user', etiqueta || 'Cliente', cliente) +
+    col('card', 'Método de pago', metodoPago || 'No especificado') +
+  '</div>';
 }
 
 /** Una fila de producto */
 function fxRowHTML(it){
-  const foto = it.foto || '';
-  const img = foto
-    ? `<img src="${foto}" class="fx-pimg" crossorigin="anonymous" alt="producto">`
-    : `<span class="fx-pimg fx-pimg-ph">${fxIcon('tag', 15, '#E91E83')}</span>`;
-  return `
-    <div class="fx-prow">
-      <div class="fx-pcol">
-        <span class="fx-pimgwrap">${img}</span>
-        <span class="fx-pinfo">
-          <span class="fx-pname">${it.nombre || '—'}</span>
-          ${it.desc ? `<span class="fx-pdesc">${it.desc}</span>` : ''}
-        </span>
-      </div>
-      <div class="fx-pnum">${String(it.cantidad || 0)}</div>
-      <div class="fx-pprecio">${formatCOP(it.precio)}</div>
-      <div class="fx-ptotal">${formatCOP(it.subtotal)}</div>
-    </div>`;
+  const img = it.foto
+    ? '<img class="fx-pimg" src="' + it.foto + '" crossorigin="anonymous" alt="producto">'
+    : '<span class="fx-pimg-ph">' + fxIcon('tag', 16) + '</span>';
+  return '<div class="fx-prow">' +
+    '<div class="fx-pcol">' +
+      '<span class="fx-pimgwrap">' + img + '</span>' +
+      '<span class="fx-pname">' + (it.nombre || '—') + '</span>' +
+    '</div>' +
+    '<div class="fx-pnum">' + String(it.cantidad || 0) + '</div>' +
+    '<div class="fx-pprecio">' + formatCOP(it.precio) + '</div>' +
+    '<div class="fx-ptotal">' + formatCOP(it.subtotal) + '</div>' +
+  '</div>';
 }
 
 /** Tabla de productos */
 function fxProdsHTML(rowsHtml){
-  return `
-    <div class="fx-prods">
-      <div class="fx-prods-head">
-        <div class="c">PRODUCTO</div>
-        <div class="n">CANT.</div>
-        <div class="p">PRECIO UNIT.</div>
-        <div class="t">TOTAL</div>
-      </div>
-      ${rowsHtml || '<div class="fx-prow"><div class="fx-pcol"><div class="fx-pinfo"><div class="fx-pname">Sin productos</div></div></div></div>'}
-    </div>`;
+  return '<div class="fx-prods">' +
+    '<div class="fx-prods-head">' +
+      '<div class="c">Producto</div>' +
+      '<div class="n">Cant.</div>' +
+      '<div class="p">Precio Unit.</div>' +
+      '<div class="t">Total</div>' +
+    '</div>' +
+    (rowsHtml || '<div class="fx-prow"><div class="fx-pcol"><span class="fx-pname">Sin productos</span></div></div>') +
+  '</div>';
 }
 
-/** Bloque total + método de pago (domicilio va en su propia fila resaltada arriba del total) */
-function fxTotalHTML({total, descuento, domicilio, metodoPago}){
-  const descRow = descuento > 0
-    ? `<div class="fx-descuento">Descuento <span>− ${formatCOP(descuento)}</span></div>`
+/** Franja de domicilio + descuento + total a pagar */
+function fxTailHTML({total, descuento, domicilio}){
+  const dom = Number(domicilio) > 0
+    ? '<div class="fx-dom">' +
+        '<span class="fx-dom-label">' + fxIcon('bag', 14) + 'Domicilio</span>' +
+        '<span class="fx-dom-val">+ ' + formatCOP(domicilio) + '</span>' +
+      '</div>'
     : '';
-  const domRow = domicilio > 0
-    ? `<div class="fx-domicilio">
-         <span class="fx-domicilio-label">${fxIcon('pin', 14, '#8A5B00')} Domicilio</span>
-         <span class="fx-domicilio-valor">+ ${formatCOP(domicilio)}</span>
-       </div>`
+  const desc = Number(descuento) > 0
+    ? '<div class="fx-desc"><span>Descuento</span><span>− ' + formatCOP(descuento) + '</span></div>'
     : '';
-  return `
-    ${domRow}
-    <div class="fx-total">
-      <div class="fx-total-left">
-        <span class="fx-total-tag">${fxIcon('tag', 18, '#E91E83')}</span>
-        <span class="fx-total-txt">
-          <span class="fx-total-label">TOTAL A PAGAR</span>
-          ${descRow}
-        </span>
-      </div>
-      <span class="fx-total-num">${formatCOP(total)}</span>
-    </div>
-    ${metodoPago ? `<div class="fx-pago-wrap"><span class="fx-pago">${fxIcon('card', 13, '#E91E83')} ${metodoPago}</span></div>` : ''}`;
+  const tot = '<div class="fx-total">' +
+    '<span class="fx-total-label">Total a pagar</span>' +
+    '<span class="fx-total-num">' + formatCOP(total) + '</span>' +
+  '</div>';
+  return '<div class="fx-tail">' + dom + '<div class="fx-total-wrap">' + desc + tot + '</div></div>';
 }
 
-/** Despedida + redes */
-function fxFooterContentHTML(){
-  return `
-    <div class="fx-gracias">
-      <div class="fx-gracias-txt">¡Gracias por tu compra!</div>
-      <div class="fx-heart">♥</div>
-    </div>
-    <div class="fx-social">
-      <span class="fx-social-ico">${fxIcon('ig', 14, '#E91E83')}</span>
-      <span class="fx-social-handle">@atenas.style_ctg</span>
-    </div>`;
+/** Pie de página: garantías + despedida */
+function fxFootHTML(){
+  return '<div class="fx-foot">' +
+    '<div class="fx-foot-row">' +
+      '<span class="fx-foot-col">' + fxIcon('shield', 14) + 'Compra segura</span>' +
+      '<span class="fx-foot-col">' + fxIcon('truck', 14) + 'Envíos a toda Colombia</span>' +
+      '<span class="fx-foot-col">' + fxIcon('star', 14) + 'Productos de calidad</span>' +
+    '</div>' +
+    '<div class="fx-gracias">Gracias por tu compra ♡</div>' +
+  '</div>';
 }
 
-/** Decoraciones sutiles de cada página */
-function fxDecorHTML(){
-  return `
-    <div class="fx-topblob"></div>
-    <div class="fx-topblob2"></div>
-    <div class="fx-dots"></div>
-    <div class="fx-footer-decor">
-      <span class="fx-blob-a"></span>
-      <span class="fx-blob-l"></span>
-      <span class="fx-blob-r"></span>
-      <span class="fx-wave fx-wave-1"></span>
-      <span class="fx-wave fx-wave-2"></span>
-      <span class="fx-wave fx-wave-3"></span>
-    </div>`;
+/** Fuentes de la factura */
+function fxFontLinksHTML(){
+  return '<link rel="preconnect" href="https://fonts.googleapis.com">' +
+    '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +
+    '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Great+Vibes&display=swap" rel="stylesheet">';
 }
 
-/** Construye el HTML completo de la factura (documento de una sola página fluida, usado como plantilla de medición) */
-function construirFacturaHTML({numero, titulo, fecha, cliente, telefono, metodoPago, items, descuento, total, logo, footer, domicilio, proveedorFoto}){
+/** Construye el HTML completo de la factura (documento fluido usado como plantilla de medición) */
+function construirFacturaHTML({numero, titulo, fecha, cliente, metodoPago, items, descuento, total, logo, domicilio, etiqueta}){
   const rowsHtml = (items || []).map(fxRowHTML).join('');
-  return `<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Great+Vibes&display=swap" rel="stylesheet">
-<style>${fxInvoiceStyle()}</style>
-</head>
-<body>
-  <div class="fx-page" style="height:auto;overflow:visible;">
-    ${fxDecorHTML()}
-    <div class="fx-flow" style="height:auto;">
-      ${fxHeadHTML({numero, titulo, logo, fecha})}
-      ${fxContactHTML()}
-      ${fxInfoHTML({fecha, cliente, metodoPago, proveedorFoto})}
-      ${fxProdsHTML(rowsHtml)}
-      ${fxTotalHTML({total, descuento, domicilio, metodoPago})}
-      ${fxFooterContentHTML()}
-    </div>
-    <div class="fx-compact-measure" style="position:absolute;top:0;left:-6000px;width:195mm;visibility:hidden;">${fxCompactHTML({numero, titulo, logo, fecha, pagina:'1'})}</div>
-  </div>
-</body>
-</html>`;
+  return fxFontLinksHTML() +
+    '<style>' + fxInvoiceStyle() + '</style>' +
+    '<div class="fx-page" style="height:auto;overflow:visible;">' +
+      '<div class="fx-flow" style="height:auto;">' +
+        '<div class="fx-compact-measure" style="position:absolute;top:0;left:-6000px;width:184mm;visibility:hidden;">' +
+          fxCompactHTML({numero, logo, pagina: '1'}) +
+        '</div>' +
+        fxHeadHTML({numero, logo}) +
+        fxContactHTML() +
+        fxInfoHTML({fecha, cliente, metodoPago, etiqueta}) +
+        fxProdsHTML(rowsHtml) +
+        fxTailHTML({total, descuento, domicilio}) +
+        fxFootHTML() +
+      '</div>' +
+    '</div>';
 }
 
 /** Espera a que carguen imágenes y fuentes dentro de un nodo */
@@ -4794,61 +4683,53 @@ async function esperarAssets(cont){
   ));
   const fontProms = [];
   if(document.fonts && document.fonts.load){
-    fontProms.push(document.fonts.load('600 11px "Poppins"'));
-    fontProms.push(document.fonts.load('700 12px "Poppins"'));
-    fontProms.push(document.fonts.load('800 30px "Poppins"'));
-    fontProms.push(document.fonts.load('400 34px "Great Vibes"'));
+    fontProms.push(document.fonts.load('600 11px "Inter"'));
+    fontProms.push(document.fonts.load('700 12px "Inter"'));
+    fontProms.push(document.fonts.load('800 18px "Inter"'));
+    fontProms.push(document.fonts.load('400 18px "Great Vibes"'));
   }
   await Promise.all(fontProms);
 }
 
 /** Renderiza UNA página de la factura a canvas (210×297mm exactos) */
-async function renderPaginaFactura(cont, {numero, titulo, fecha, cliente, metodoPago, rows, logo, total, descuento, domicilio, proveedorFoto}, tipo, pagina, escala = 2){
+async function renderPaginaFactura(cont, datos, tipo, pagina, escala){
+  const {numero, fecha, cliente, metodoPago, items, total, descuento, domicilio, logo, etiqueta} = datos;
+  const rowsHtml = (items || []).map(fxRowHTML).join('');
+
+  let inner = '';
+  if(tipo === 'first' || tipo === 'single'){
+    inner += fxHeadHTML({numero, logo});
+    inner += fxContactHTML();
+    inner += fxInfoHTML({fecha, cliente, metodoPago, etiqueta});
+  } else {
+    inner += fxCompactHTML({numero, logo, pagina});
+  }
+  inner += fxProdsHTML(rowsHtml);
+  if(tipo === 'last' || tipo === 'single'){
+    inner += fxTailHTML({total, descuento, domicilio});
+    inner += fxFootHTML();
+  }
+
   const page = document.createElement('div');
   page.className = 'fx-page';
   page.style.cssText = 'position:absolute;top:0;left:0;';
-  const rowsHtml = rows.map(it => fxRowHTML(it)).join('');
-  const prodsBlock = rowsHtml ? fxProdsHTML(rowsHtml) : '';
-  let flow = '';
-  if(tipo === 'single'){
-    flow = `${fxHeadHTML({numero, titulo, logo, fecha})}
-      ${fxContactHTML()}
-      ${fxInfoHTML({fecha, cliente, metodoPago, proveedorFoto})}
-      ${prodsBlock}
-      ${fxTotalHTML({total, descuento, domicilio, metodoPago})}
-      ${fxFooterContentHTML()}`;
-  } else if(tipo === 'first'){
-    flow = `${fxHeadHTML({numero, titulo, logo, fecha})}
-      ${fxContactHTML()}
-      ${fxInfoHTML({fecha, cliente, metodoPago, proveedorFoto})}
-      ${prodsBlock}`;
-  } else if(tipo === 'mid'){
-    flow = `${fxCompactHTML({numero, titulo, logo, fecha, pagina})}
-      ${prodsBlock}`;
-  } else {
-    flow = `${fxCompactHTML({numero, titulo, logo, fecha, pagina})}
-      ${prodsBlock}
-      ${fxTotalHTML({total, descuento, domicilio, metodoPago})}
-      ${fxFooterContentHTML()}`;
-  }
-  page.innerHTML = `${fxDecorHTML()}<div class="fx-flow">${flow}</div>`;
+  page.innerHTML = '<div class="fx-flow">' + inner + '</div>';
   cont.appendChild(page);
 
+  await esperarAssets(page);
+
   const imgs = Array.from(page.querySelectorAll('img'));
-  await Promise.all(imgs.map(img =>
-    img.complete ? Promise.resolve() : new Promise(r => { img.onload = r; img.onerror = r; })
-  ));
   imgs.forEach(img => {
     if(img.naturalWidth === 0 && img.parentNode){
       const ph = document.createElement('span');
-      ph.className = 'fx-pimg fx-pimg-ph';
-      ph.innerHTML = fxIcon('tag', 15, '#E91E83');
+      ph.className = 'fx-pimg-ph';
+      ph.innerHTML = fxIcon('tag', 16);
       img.parentNode.replaceChild(ph, img);
     }
   });
 
   const canvas = await window.html2canvas(page, {
-    scale: escala,
+    scale: escala || 2,
     useCORS: true,
     allowTaint: false,
     backgroundColor: '#FFFFFF',
@@ -4863,28 +4744,31 @@ async function renderPaginaFactura(cont, {numero, titulo, fecha, cliente, metodo
 }
 
 /** Construye el PDF de factura con paginación correcta (sin cortar filas, con encabezado repetido) */
-async function construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPago, items, descuento, total, numero, domicilio, proveedorFoto}){
+async function construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPago, items, descuento, total, numero, domicilio, proveedorFoto, etiqueta}){
   const { jsPDF } = window.jspdf;
   if(!window.html2canvas){
     showToast('⚠️ No se pudo generar la factura (falta html2canvas)', 'error');
     return { blob: new jsPDF().output('blob'), canvases: [] };
   }
 
-  // Resolución de renderizado: menor = mucho más rápido sin notarse en pantalla
+  // Resolución de renderizado: menor = mucho más rápido sin notarse en pantalla.
+  // El diseño es plano (pocos degradados), así que 1.6 soporta la nitidez sin costo extra.
   const isMobile = window.innerWidth <= 768;
-  const ESCALA = isMobile ? 1.2 : 1.6;
+  const ESCALA = isMobile ? 1.3 : 1.6;
 
   showToast('⏳ Generando factura…', 'info');
   const logo = await logoMini();
   const rows = await Promise.all((items || []).map(async it => ({
-    nombre: it.nombre, cantidad: it.cantidad,
-    precio: it.precio, subtotal: it.subtotal,
-    foto: await imagenMini(it.foto || ''), desc: it.desc || ''
+    nombre: it.nombre,
+    cantidad: it.cantidad,
+    precio: it.precio,
+    subtotal: it.subtotal,
+    foto: await imagenMini(it.foto || '')
   })));
 
   const html = construirFacturaHTML({
-    numero, titulo, fecha, cliente, telefono, metodoPago,
-    items: rows, descuento, total, logo, domicilio: domicilio || 0, proveedorFoto: proveedorFoto || ''
+    numero, titulo, fecha, cliente, metodoPago, items: rows,
+    descuento, total, logo, domicilio: domicilio || 0, etiqueta
   });
 
   const cont = document.createElement('div');
@@ -4906,35 +4790,34 @@ async function construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPago
     const hContact = bH(q('.fx-contact'));
     const hInfo = bH(q('.fx-info'));
     const hProdsHead = bH(q('.fx-prods-head'));
-    const hTotal = bH(q('.fx-total'));
-    const hPago = q('.fx-pago-wrap') ? bH(q('.fx-pago-wrap')) : 0;
-    const hGracias = bH(q('.fx-gracias'));
-    const hSocial = bH(q('.fx-social'));
+    const hTail = bH(q('.fx-tail'));
+    const hFoot = bH(q('.fx-foot'));
     const hCompact = bH(q('.fx-compact-measure'));
 
-    const rowEls = Array.from(cont.querySelectorAll('.fx-prow'));
+    const rowEls = Array.from(cont.querySelectorAll('.fx-prods .fx-prow'));
     const rowH = rowEls.map(el => el.getBoundingClientRect().height);
     const n = rowH.length;
     const all = Array.from({length: n}, (_, i) => i);
 
-    const GAP = 16, PAD_T = 30, PAD_B = 40, SLACK = 6;
+    const GAP = 12, PAD_T = 12 * (96 / 25.4), PAD_B = 11 * (96 / 25.4), SLACK = 8;
     const cap = pageH - PAD_T - PAD_B - SLACK;
     const flowOf = blocks => blocks.reduce((a, b, i) => a + b + (i > 0 ? GAP : 0), 0);
     const sumRows = idxs => idxs.reduce((a, i) => a + rowH[i], 0);
     const prods = idxs => hProdsHead + sumRows(idxs);
 
     const headTop = flowOf([hHead, hContact, hInfo]);
-    const totalTail = flowOf([hTotal, hPago, hGracias, hSocial]);
+    const rowsBudgetFirst = cap - headTop - GAP - hProdsHead;
+    const rowsBudgetMid = cap - flowOf([hCompact, hProdsHead]);
+    const rowsBudgetLast = cap - flowOf([hCompact, hProdsHead, hTail, hFoot]);
 
     const layoutPages = [];
-    if(n === 0 || flowOf([hHead, hContact, hInfo, prods(all), hTotal, hPago, hGracias, hSocial]) <= cap){
+    if(n === 0 || flowOf([hHead, hContact, hInfo, prods(all), hTail, hFoot]) <= cap){
       layoutPages.push({type: 'single', rows: all});
     } else {
-      const rowsBudgetLast = cap - flowOf([hCompact, hProdsHead]) - totalTail;
       let i = 0;
 
       const p1rows = [];
-      let b1 = cap - headTop - GAP - hProdsHead;
+      let b1 = rowsBudgetFirst;
       for(; i < n; i++){
         if(rowH[i] <= b1){ p1rows.push(i); b1 -= rowH[i]; } else break;
       }
@@ -4942,14 +4825,14 @@ async function construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPago
       layoutPages.push({type: 'first', rows: p1rows});
 
       while(i < n){
-        const remainingSum = sumRows(all.slice(i));
-        if(remainingSum <= rowsBudgetLast){
+        const remaining = sumRows(all.slice(i));
+        if(remaining <= rowsBudgetLast){
           layoutPages.push({type: 'last', rows: all.slice(i)});
           i = n;
           break;
         }
         const mid = [];
-        let bm = cap - flowOf([hCompact, hProdsHead]);
+        let bm = rowsBudgetMid;
         for(; i < n; i++){
           if(rowH[i] > bm) break;
           mid.push(i);
@@ -4964,14 +4847,13 @@ async function construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPago
     }
 
     const pdf = new jsPDF({orientation: 'portrait', unit: 'mm', format: 'a4'});
-    const datosBase = {numero, titulo, fecha, cliente, metodoPago, logo, total, descuento: descuento || 0, domicilio: domicilio || 0, proveedorFoto: proveedorFoto || ''};
-    /* Cada página debe dibujar SOLO su subconjunto de filas (soluciona los
-       productos duplicados que salían repetidos en cada hoja). Se renderizan de
-       una en una para no saturar memoria y generar más rápido. */
+    const datosBase = {numero, fecha, cliente, metodoPago, logo, total, descuento: descuento || 0, domicilio: domicilio || 0, etiqueta};
+    /* Cada página dibuja SOLO su subconjunto de filas (evita productos
+       duplicados). Se renderizan de una en una para no saturar memoria. */
     const canvases = [];
     for(const lp of layoutPages){
       canvases.push(await renderPaginaFactura(
-        cont, {...datosBase, rows: lp.rows.map(ii => rows[ii])}, lp.type, String(canvases.length + 1), ESCALA
+        cont, {...datosBase, items: lp.rows.map(ii => rows[ii])}, lp.type, String(canvases.length + 1), ESCALA
       ));
     }
     canvases.forEach((canvas, p) => {
@@ -7251,3 +7133,553 @@ document.addEventListener('click', (e) => {
   }, 300);
 });
 document.addEventListener('dblclick', () => { clearTimeout(_copyTimer); });
+
+/* ============================================================
+   INVERSIONES - CONTROL DE INVERSIONISTAS
+   ============================================================ */
+
+let INVERSIONISTAS = [];
+let _invEditando = null;        // id del inversionista en edición
+let _invInversionMovId = null;  // id del movimiento de inversión inicial (si existe)
+let _movEditando = null;        // id del movimiento en edición
+let _movInversionistaId = null; // inversionista al que pertenece el movimiento
+let _movTipo = 'egreso';        // inversion | abono | egreso
+let _movSeleccion = null;       // { origen, id } de la factura elegida
+let _facturasTemp = [];         // facturas de compras/simulaciones para el buscador
+
+/** Escapa texto para colocarlo seguro dentro de innerHTML */
+function esc(str){
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function cargarInversionistas(){
+  const lista = document.getElementById('inversionistas-lista');
+  const mensajeError = () => {
+    if(lista) lista.innerHTML = `
+      <div style="padding:24px;text-align:center;color:var(--gris-60);font-size:13px;">
+        <div><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#F39C12" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto 8px;display:block;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+        <strong style="color:var(--gris-80);">Aún no está lista la sección de inversiones</strong><br>
+        Ejecuta la migración <code style="background:var(--gris-20);padding:2px 6px;border-radius:6px;">migracion_inversiones.sql</code><br>
+        en Supabase → SQL Editor y vuelve a entrar aquí.
+      </div>`;
+  };
+
+  const { data: inv, error: e1 } = await sb.from('inversionistas').select('*').order('created_at', { ascending: false });
+  if(e1){ showToast('❌ Error cargando inversionistas', 'error'); mensajeError(); return; }
+
+  const { data: mov, error: e2 } = await sb.from('inversiones_movimientos').select('*')
+    .order('fecha', { ascending: false }).order('created_at', { ascending: false });
+  if(e2){ showToast('❌ Error cargando movimientos', 'error'); mensajeError(); return; }
+
+  INVERSIONISTAS = (inv || []).map(i => ({
+    ...i,
+    movimientos: (mov || []).filter(m => m.inversionista_id === i.id)
+  }));
+  renderInversionistas();
+  actualizarKpisInversiones();
+}
+
+function calcInversiones(inv){
+  const sum = t => (inv.movimientos || [])
+    .filter(m => m.tipo === t)
+    .reduce((a,m) => a + (+m.monto || 0), 0);
+
+  const invertido = sum('inversion');   // solo el monto puesto inicialmente
+  const abonos    = sum('abono');       // aportes adicionales
+  const egresos   = sum('egreso');      // compras y salidas
+  return { invertido, abonos, egresos, saldo: invertido + abonos - egresos };
+}
+
+function actualizarKpisInversiones(){
+  let invertido = 0, egresos = 0, saldo = 0;
+  INVERSIONISTAS.forEach(i => {
+    const c = calcInversiones(i);
+    invertido += c.invertido;
+    egresos   += c.egresos;
+    saldo     += c.saldo;
+  });
+  const elInv  = document.getElementById('inv-kpi-invertido');
+  const elEgr  = document.getElementById('inv-kpi-egresos');
+  const elSal  = document.getElementById('inv-kpi-saldo');
+  const elCnt  = document.getElementById('inv-kpi-count');
+  if(elInv) elInv.textContent = formatCOP(invertido);
+  if(elEgr) elEgr.textContent = formatCOP(egresos);
+  if(elSal) elSal.textContent = formatCOP(saldo);
+  if(elCnt) elCnt.textContent = INVERSIONISTAS.length;
+}
+
+function filtrarInversionistas(){
+  const q = (document.getElementById('inv-buscar').value || '').trim().toLowerCase();
+  renderInversionistas(q);
+}
+
+function renderInversionistas(q){
+  const lista = document.getElementById('inversionistas-lista');
+  if(!lista) return;
+
+  const filtradas = INVERSIONISTAS.filter(i => !q || (i.nombre||'').toLowerCase().includes(q));
+  if(!filtradas.length){
+    lista.innerHTML = `<div style="padding:30px;text-align:center;color:var(--gris-60);font-size:13px;">${
+      INVERSIONISTAS.length ? 'No hay inversionistas con ese nombre.' : 'Aún no has registrado inversionistas.'
+    }</div>`;
+    return;
+  }
+
+  lista.innerHTML = filtradas.map(inv => {
+    const { invertido, abonos, egresos, saldo } = calcInversiones(inv);
+    const movs = (inv.movimientos || []).filter(m => m.tipo !== 'inversion');
+    const movHtml = movs.length
+      ? movs.map(m => movimientoHtml(m)).join('')
+      : `<div class="inv-vacio">Aún no hay abonos ni egresos registrados.</div>`;
+
+    return `
+      <div class="inv-card" data-id="${inv.id}">
+        <div class="inv-card-top">
+          <div class="inv-avatar">${esc((inv.nombre||'?').trim().charAt(0).toUpperCase())}</div>
+          <div class="inv-datos">
+            <div class="inv-nombre">${esc(inv.nombre)}${inv.notas ? `<span class="inv-notas"> · ${esc(inv.notas)}</span>` : ''}</div>
+          </div>
+          <div class="inv-acciones">
+            <button class="btn btn-secondary btn-mini" onclick="abrirModalMovimiento('egreso','${inv.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" style="vertical-align:-2px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>&ensp;Egreso</button>
+            <button class="btn btn-primary btn-mini" onclick="abrirModalMovimiento('abono','${inv.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>&ensp;Abono</button>
+            <button class="btn-icon" onclick="abrirModalInversionista('${inv.id}')" title="Editar inversionista"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+            <button class="btn-icon" onclick="eliminarInversionista('${inv.id}')" title="Eliminar" style="color:var(--rojo);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+          </div>
+        </div>
+
+        <div class="inv-saldo">
+          <div class="inv-saldo-label">Saldo actual disponible</div>
+          <div class="inv-saldo-valor ${saldo < 0 ? 'inv-neg' : ''}" data-no-copy>${formatCOP(saldo)}</div>
+        </div>
+
+        <div class="inv-resumen-grid">
+          <div class="inv-resumen-item">
+            <span class="inv-resumen-lbl">Invertido</span>
+            <span class="inv-resumen-valor">${formatCOP(invertido)}</span>
+          </div>
+          <div class="inv-resumen-item">
+            <span class="inv-resumen-lbl">Abonos</span>
+            <span class="inv-resumen-valor">${formatCOP(abonos)}</span>
+          </div>
+          <div class="inv-resumen-item">
+            <span class="inv-resumen-lbl">Gastado</span>
+            <span class="inv-resumen-valor inv-neg">${formatCOP(egresos)}</span>
+          </div>
+        </div>
+
+        <div class="inv-movs-head" onclick="toggleInverMovs(this)">
+          <span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>&ensp;Entradas y salidas (${movs.length})</span>
+          <span class="inv-toggle">▴</span>
+        </div>
+        <div class="inv-movs open">
+          ${movHtml}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function movimientoHtml(m){
+  const tipos = {
+    inversion: { icono:'cash', icoClase:'inv-ico-verde' },
+    abono:     { icono:'plus', icoClase:'inv-ico-celeste' },
+    egreso:    { icono:'card', icoClase:'inv-ico-roja' }
+  };
+  const t = tipos[m.tipo] || tipos.egreso;
+  if(m.tipo === 'egreso' && (m.origen === 'compra' || m.origen === 'simulacion')) t.icono = 'cart';
+
+  const origen = m.origen === 'compra' ? 'Compra registrada'
+    : m.origen === 'simulacion' ? 'Simulación'
+    : 'Manual';
+  const fecha = m.fecha ? new Date(m.fecha + 'T00:00:00').toLocaleDateString('es-CO') : '—';
+  const signo = m.tipo === 'egreso' ? '−' : '+';
+  const verFactura = (m.tipo === 'egreso' && m.origen !== 'manual')
+    ? `<button class="inv-ver-factura" onclick="verDetalleFacturaInv('${m.referencia_id || ''}','${m.origen}')" title="Ver la factura de esta compra"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Ver factura</button>`
+    : '';
+
+  return `
+    <div class="inv-mov-row ${m.tipo === 'egreso' ? 'inv-mov-row-egreso' : 'inv-mov-row-abono'}" data-id="${m.id}">
+      <div class="inv-mov-ico ${t.icoClase}">${ico(t.icono, 15)}</div>
+      <div class="inv-mov-info">
+        <div class="inv-mov-concepto">${esc(m.concepto || 'Sin concepto')}</div>
+        <div class="inv-mov-meta">
+          <span class="inv-mov-fecha">${fecha}</span>
+          <span class="inv-mov-dot">•</span>
+          <span class="inv-mov-origen">${origen}</span>
+          ${verFactura}
+        </div>
+      </div>
+      <div class="inv-mov-right">
+        <div class="inv-mov-monto ${m.tipo === 'egreso' ? 'inv-mov-neg' : 'inv-mov-pos'}" data-no-copy>${signo}${formatCOP(m.monto)}</div>
+        <div class="inv-mov-btns">
+          <button class="btn-icon" onclick="editarMovimiento('${m.id}')" title="Editar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="btn-icon" onclick="eliminarMovimiento('${m.id}')" title="Eliminar" style="color:var(--rojo);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function verDetalleFacturaInv(referenciaId, origen){
+  if(!referenciaId){ showToast('Esta factura ya no está disponible', 'error'); return; }
+  if(origen === 'simulacion'){ verFacturaSimDB(referenciaId); return; }
+
+  const { data: c } = await sb.from('compras').select('*, compra_items(*)').eq('id', referenciaId).single();
+  if(!c){ showToast('No se encontró la compra', 'error'); return; }
+
+  const items = c.compra_items || [];
+  const filas = items.map(it => {
+    const thumb = it.foto_url
+      ? `<img src="${it.foto_url}" style="width:30px;height:30px;border-radius:7px;object-fit:cover;">`
+      : `${proIcon(it.producto_icono, 14)}`;
+    return `
+      <div class="venta-item-row">
+        <div class="venta-item-thumb">${thumb}</div>
+        <div class="venta-item-info">${esc(it.producto_nombre)} x${it.cantidad}</div>
+        <div class="venta-item-total">${formatCOP(it.costo_unitario * it.cantidad)}</div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('inv-fact-title').textContent = 'Factura — ' + (c.proveedor_nombre || 'Proveedor');
+  document.getElementById('inv-fact-body').innerHTML = `
+    <div style="padding:14px 18px 20px;">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--gris-60);margin-bottom:10px;">
+        <span>${c.fecha ? new Date(c.fecha + 'T00:00:00').toLocaleDateString('es-CO') : ''}</span>
+        <span>${c.tipo === 'credito' ? 'Crédito' : 'Contado'} · ${c.fuente === 'bancolombia' ? 'Bancolombia' : 'Efectivo'}</span>
+      </div>
+      ${filas || '<div style="text-align:center;color:var(--gris-60);font-size:12px;padding:14px;">Sin items</div>'}
+      <div style="display:flex;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:1px solid var(--gris-20);font-weight:800;color:var(--gris-80);">
+        <span>TOTAL</span><span>${formatCOP(c.total)}</span>
+      </div>
+    </div>`;
+  document.getElementById('modal-inv-factura').classList.add('open');
+}
+
+function cerrarDetalleFacturaInv(){
+  document.getElementById('modal-inv-factura').classList.remove('open');
+}
+
+function toggleInverMovs(btn){
+  const card = btn.closest('.inv-card');
+  if(!card) return;
+  const row = card.querySelector('.inv-movs');
+  const abierto = row.classList.toggle('open');
+  const tri = btn.querySelector('.inv-toggle');
+  if(tri) tri.textContent = abierto ? '▴' : '▾';
+}
+
+function findMovimiento(id){
+  for(const inv of INVERSIONISTAS){
+    const m = (inv.movimientos || []).find(x => x.id === id);
+    if(m) return m;
+  }
+  return null;
+}
+
+/* ── Inversionista (crear / editar / borrar) ── */
+function abrirModalInversionista(id){
+  _invEditando = id || null;
+  _invInversionMovId = null;
+  const inv = id ? INVERSIONISTAS.find(i => i.id === id) : null;
+
+  const movInv = inv ? (inv.movimientos || []).find(m => m.tipo === 'inversion') : null;
+  _invInversionMovId = movInv ? movInv.id : null;
+
+  document.getElementById('inv-nombre').value = inv ? inv.nombre : '';
+  document.getElementById('inv-notas').value = inv ? (inv.notas || '') : '';
+  document.getElementById('inv-monto-inicial').value = movInv ? (+movInv.monto || 0).toLocaleString('es-CO') : '';
+  document.getElementById('inv-fecha-inicial').value = (movInv && movInv.fecha) || new Date().toISOString().split('T')[0];
+  document.getElementById('inv-inicial-label').textContent = inv ? 'Inversión inicial (editable)' : 'Registrar inversión inicial';
+
+  document.getElementById('modal-inversionista').classList.add('open');
+}
+
+function cerrarModalInversionista(){
+  document.getElementById('modal-inversionista').classList.remove('open');
+  _invEditando = null;
+  _invInversionMovId = null;
+}
+
+async function guardarInversionista(){
+  const nombre = document.getElementById('inv-nombre').value.trim();
+  if(!nombre){ showToast('⚠️ Falta el nombre del inversionista', 'error'); return; }
+  const notas = document.getElementById('inv-notas').value.trim();
+  const montoInicial = rawNum(document.getElementById('inv-monto-inicial'));
+  const fechaInicial = document.getElementById('inv-fecha-inicial').value || new Date().toISOString().split('T')[0];
+  const payload = { nombre, notas };
+
+  let invId = _invEditando;
+
+  if(_invEditando){
+    const { error } = await sb.from('inversionistas').update(payload).eq('id', _invEditando);
+    if(error){ showToast('❌ Error: ' + error.message, 'error'); return; }
+  } else {
+    const { data: nuevo, error } = await sb.from('inversionistas').insert(payload).select().single();
+    if(error){ showToast('❌ Error: ' + error.message, 'error'); return; }
+    invId = nuevo.id;
+  }
+
+  // Inversión inicial: crear, actualizar o quitar
+  if(montoInicial > 0){
+    if(_invInversionMovId){
+      const { error } = await sb.from('inversiones_movimientos')
+        .update({ monto: montoInicial, fecha: fechaInicial }).eq('id', _invInversionMovId);
+      if(error){ showToast('❌ Error: ' + error.message, 'error'); return; }
+    } else {
+      const { error } = await sb.from('inversiones_movimientos').insert({
+        inversionista_id: invId,
+        tipo: 'inversion',
+        origen: 'manual',
+        concepto: 'Inversión inicial',
+        monto: montoInicial,
+        fecha: fechaInicial
+      });
+      if(error){ showToast('❌ Error: ' + error.message, 'error'); return; }
+    }
+  } else if(_invInversionMovId){
+    const { error } = await sb.from('inversiones_movimientos').delete().eq('id', _invInversionMovId);
+    if(error){ showToast('❌ Error: ' + error.message, 'error'); return; }
+  }
+
+  showToast(_invEditando ? `✅ Inversionista "${nombre}" actualizado` : `✅ Inversionista "${nombre}" registrado`);
+  cerrarModalInversionista();
+  await cargarInversionistas();
+}
+
+function eliminarInversionista(id){
+  const inv = INVERSIONISTAS.find(i => i.id === id);
+  confirmarAccion(
+    `Se eliminará a "${inv ? inv.nombre : 'este inversionista'}" con TODOS sus movimientos. ¿Continuar?`,
+    async () => {
+      const { error } = await sb.from('inversionistas').delete().eq('id', id);
+      if(error){ showToast('❌ Error: ' + error.message, 'error'); return; }
+      showToast('Inversionista eliminado');
+      await cargarInversionistas();
+    },
+    'Confirmar eliminación'
+  );
+}
+
+/* ── Movimiento (abono / egreso) ── */
+function abrirModalMovimiento(tipo, inversionistaId, id){
+  _movEditando = id || null;
+  _movTipo = tipo;
+  _movInversionistaId = inversionistaId;
+  _movSeleccion = null;
+  _facturasTemp = [];
+  const _prev0 = document.getElementById('mov-fact-preview');
+  if(_prev0) _prev0.innerHTML = '';
+
+  const inv = INVERSIONISTAS.find(i => i.id === inversionistaId);
+  const titulos = {
+    inversion: 'Registrar inversión',
+    abono: 'Agregar abono a inversión',
+    egreso: 'Registrar egreso de inversión'
+  };
+
+  document.getElementById('mov-title').textContent = titulos[tipo] || titulos.abono;
+  document.getElementById('mov-inversionista-nombre').value = inv ? inv.nombre : '';
+  document.getElementById('mov-concepto').value = '';
+  document.getElementById('mov-monto').value = '';
+  document.getElementById('mov-fecha').value = new Date().toISOString().split('T')[0];
+  document.getElementById('mov-buscar').value = '';
+  document.getElementById('mov-resultados').innerHTML = '';
+  document.getElementById('mov-resultados').classList.remove('open');
+
+  const esEgreso = tipo === 'egreso';
+  document.getElementById('mov-origen-field').style.display = esEgreso ? 'block' : 'none';
+  document.getElementById('mov-buscar-field').style.display = 'none';
+  document.getElementById('mov-origen').value = 'manual';
+
+  if(id){
+    const mov = findMovimiento(id);
+    if(mov){
+      document.getElementById('mov-concepto').value = mov.concepto || '';
+      document.getElementById('mov-monto').value = (+mov.monto || 0).toLocaleString('es-CO');
+      document.getElementById('mov-fecha').value = mov.fecha || document.getElementById('mov-fecha').value;
+      if(esEgreso && mov.origen !== 'manual'){
+        document.getElementById('mov-origen').value = mov.origen;
+        document.getElementById('mov-buscar-field').style.display = 'block';
+        cargarFacturasParaOrigen(mov.origen).then(() => {
+          document.getElementById('mov-buscar').value = mov.concepto || '';
+          _movSeleccion = { origen: mov.origen, id: mov.referencia_id };
+          renderPreviewFacturaMov();
+        });
+      }
+    }
+  }
+
+  document.getElementById('modal-movimiento').classList.add('open');
+}
+
+function cerrarModalMovimiento(){
+  document.getElementById('modal-movimiento').classList.remove('open');
+  _movEditando = null;
+  _movSeleccion = null;
+  _facturasTemp = [];
+}
+
+function editarMovimiento(id){
+  const mov = findMovimiento(id);
+  if(!mov) return;
+  abrirModalMovimiento(mov.tipo, mov.inversionista_id, id);
+}
+
+function cambiarOrigenMovimiento(){
+  const origen = document.getElementById('mov-origen').value;
+  const esFactura = origen !== 'manual';
+  document.getElementById('mov-buscar-field').style.display = esFactura ? 'block' : 'none';
+  _movSeleccion = null;
+  if(esFactura){
+    cargarFacturasParaOrigen(origen);
+  } else {
+    _facturasTemp = [];
+    document.getElementById('mov-resultados').innerHTML = '';
+    document.getElementById('mov-resultados').classList.remove('open');
+  }
+}
+
+async function cargarFacturasParaOrigen(origen){
+  document.getElementById('mov-buscar').value = '';
+  _movSeleccion = null;
+  const _prev = document.getElementById('mov-fact-preview');
+  if(_prev) _prev.innerHTML = '';
+  if(origen === 'compra'){
+    const { data } = await sb.from('compras')
+      .select('id, proveedor_nombre, total, fecha')
+      .or('es_abono.is.null,es_abono.eq.false')
+      .order('created_at', { ascending: false })
+      .limit(500);
+    _facturasTemp = (data || []).map(c => ({
+      id: c.id,
+      etiqueta: c.proveedor_nombre || 'Proveedor',
+      total: +c.total || 0,
+      fecha: c.fecha
+    }));
+  } else if(origen === 'simulacion'){
+    const { data } = await sb.from('cotizaciones_clientes')
+      .select('id, cliente_nombre, total, fecha')
+      .order('created_at', { ascending: false })
+      .limit(500);
+    _facturasTemp = (data || []).map(c => ({
+      id: c.id,
+      etiqueta: c.cliente_nombre || 'Cliente',
+      total: +c.total || 0,
+      fecha: c.fecha
+    }));
+  } else {
+    _facturasTemp = [];
+  }
+  buscarFacturasMovimiento();
+}
+
+function buscarFacturasMovimiento(){
+  const cont = document.getElementById('mov-resultados');
+  if(!cont) return;
+  const q = (document.getElementById('mov-buscar').value || '').toLowerCase();
+  const filtradas = _facturasTemp.filter(f => f.etiqueta.toLowerCase().includes(q)).slice(0, 8);
+
+  if(!filtradas.length){
+    cont.innerHTML = '';
+    cont.classList.remove('open');
+    return;
+  }
+
+  cont.innerHTML = filtradas.map(f => `
+    <div class="autocomplete-item" onclick="seleccionarFacturaMovimiento('${f.id}')">
+      <span style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
+        <span><strong>${esc(f.etiqueta)}</strong> <span style="color:var(--gris-60);font-size:11px;">${f.fecha ? new Date(f.fecha).toLocaleDateString('es-CO') : ''}</span></span>
+        <span style="font-weight:800;color:var(--celeste-dark);white-space:nowrap;">${formatCOP(f.total)}</span>
+      </span>
+    </div>
+  `).join('');
+  cont.classList.add('open');
+}
+
+async function seleccionarFacturaMovimiento(id){
+  const f = _facturasTemp.find(x => x.id === id);
+  if(!f) return;
+  _movSeleccion = { origen: document.getElementById('mov-origen').value, id: f.id };
+  document.getElementById('mov-buscar').value = f.etiqueta;
+  document.getElementById('mov-resultados').classList.remove('open');
+  const prefijo = _movSeleccion.origen === 'simulacion' ? 'Simulación de compra' : 'Compra';
+  document.getElementById('mov-concepto').value = `${prefijo} — ${f.etiqueta}`;
+  document.getElementById('mov-monto').value = (+f.total || 0).toLocaleString('es-CO');
+  await renderPreviewFacturaMov();
+}
+
+async function renderPreviewFacturaMov(){
+  const cont = document.getElementById('mov-fact-preview');
+  if(!cont) return;
+  if(!_movSeleccion){ cont.innerHTML = ''; return; }
+
+  const btnVer = `<button type="button" class="inv-ver-factura" onclick="verDetalleFacturaInv('${_movSeleccion.id}','${_movSeleccion.origen}')" style="margin-top:8px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Ver factura completa</button>`;
+
+  if(_movSeleccion.origen === 'simulacion'){
+    cont.innerHTML = `<div class="inv-fact-preview"><div style="font-size:11px;color:var(--gris-60);">Simulación de venta seleccionada.</div>${btnVer}</div>`;
+    return;
+  }
+
+  cont.innerHTML = `<div class="inv-fact-preview"><div style="font-size:11px;color:var(--gris-60);">Cargando detalle...</div></div>`;
+  const { data: c } = await sb.from('compras').select('*, compra_items(*)').eq('id', _movSeleccion.id).single();
+  const items = (c && c.compra_items) || [];
+  const filas = items.map(it => `
+    <div class="venta-item-row">
+      <div class="venta-item-thumb">${it.foto_url ? `<img src="${it.foto_url}" style="width:30px;height:30px;border-radius:7px;object-fit:cover;">` : proIcon(it.producto_icono, 14)}</div>
+      <div class="venta-item-info">${esc(it.producto_nombre)} x${it.cantidad}</div>
+      <div class="venta-item-total">${formatCOP(it.costo_unitario * it.cantidad)}</div>
+    </div>`).join('');
+
+  cont.innerHTML = `
+    <div class="inv-fact-preview">
+      <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:800;color:var(--gris-60);text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px;">
+        <span>${esc(c ? (c.proveedor_nombre || 'Proveedor') : '')}</span>
+        <span>${c ? formatCOP(c.total) : ''}</span>
+      </div>
+      ${filas || '<div style="font-size:11px;color:var(--gris-60);">Sin items</div>'}
+      ${btnVer}
+    </div>`;
+}
+
+async function guardarMovimiento(){
+  const concepto = document.getElementById('mov-concepto').value.trim();
+  const monto = rawNum(document.getElementById('mov-monto'));
+  if(!monto || monto <= 0){ showToast('⚠️ Falta el monto del movimiento', 'error'); return; }
+  if(_movTipo === 'egreso' && !concepto){ showToast('⚠️ Falta el concepto del egreso', 'error'); return; }
+
+  const origen = _movTipo === 'egreso' ? document.getElementById('mov-origen').value : 'manual';
+  const payload = {
+    inversionista_id: _movInversionistaId,
+    tipo: _movTipo,
+    origen,
+    referencia_id: (origen !== 'manual' && _movSeleccion) ? _movSeleccion.id : null,
+    concepto: concepto || (_movTipo === 'abono' ? 'Abono a inversión' : 'Egreso'),
+    monto,
+    fecha: document.getElementById('mov-fecha').value || new Date().toISOString().split('T')[0]
+  };
+
+  if(_movEditando){
+    const { error } = await sb.from('inversiones_movimientos').update(payload).eq('id', _movEditando);
+    if(error){ showToast('❌ Error: ' + error.message, 'error'); return; }
+    showToast('✅ Movimiento actualizado');
+  } else {
+    const { error } = await sb.from('inversiones_movimientos').insert(payload);
+    if(error){ showToast('❌ Error: ' + error.message, 'error'); return; }
+    const labels = { inversion: 'Inversión', abono: 'Abono', egreso: 'Egreso' };
+    showToast(`✅ ${labels[_movTipo] || 'Movimiento'} registrado — ${formatCOP(monto)}`);
+  }
+
+  cerrarModalMovimiento();
+  await cargarInversionistas();
+}
+
+function eliminarMovimiento(id){
+  const mov = findMovimiento(id);
+  const desc = mov && mov.concepto ? `"${mov.concepto}"` : 'este movimiento';
+  confirmarAccion(`¿Eliminar ${desc}? Esta acción no se puede deshacer.`, async () => {
+    const { error } = await sb.from('inversiones_movimientos').delete().eq('id', id);
+    if(error){ showToast('❌ Error: ' + error.message, 'error'); return; }
+    showToast('Movimiento eliminado');
+    await cargarInversionistas();
+  }, 'Confirmar eliminación');
+}

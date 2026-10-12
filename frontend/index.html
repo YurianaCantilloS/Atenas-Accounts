@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Atenas Accounts</title>
 <link rel="icon" type="image/png" href="assets/img/logo.png">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Poppins:wght@400;500;600;700;800&family=Great+Vibes&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Poppins:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=Great+Vibes&display=swap">
 <link rel="stylesheet" href="assets/css/main.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -67,6 +67,11 @@
         <span class="nav-text">Cotizaciones</span>
       </div>
 
+      <div class="nav-item" data-view="inversiones" onclick="showView('inversiones');toggleMobileMenu()">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></span>
+        <span class="nav-text">Inversiones</span>
+      </div>
+
       <div class="nav-item" data-view="envios" onclick="showView('envios')">
   <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span>
   <span class="nav-text">Envíos</span>
@@ -124,6 +129,11 @@
       <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
       <span class="nav-text">Cotizaciones</span>
     </div>
+
+   <div class="nav-item" data-view="inversiones" onclick="showView('inversiones')">
+  <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></span>
+  <span class="nav-text">Inversiones</span>
+</div>
 
    <div class="nav-item" data-view="envios" onclick="showView('envios');toggleMobileMenu()">
   <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span>
@@ -1898,6 +1908,145 @@
 
   </div><!-- cierra envios-layout -->
 </div><!-- cierra view-envios -->
+
+<!-- ===================== INVERSIONES ===================== -->
+<div class="view" id="view-inversiones">
+  <div class="mod-head">
+    <h2>INVERSIONES</h2>
+    <div class="mod-head-sub">Controla los aportes, abonos y egresos de cada inversionista</div>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card fucsia">
+      <div class="kpi-label">Total invertido</div>
+      <div class="kpi-value" id="inv-kpi-invertido">$0</div>
+      <div class="kpi-sub">Monto puesto inicialmente</div>
+    </div>
+    <div class="kpi-card amarillo">
+      <div class="kpi-label">Total egresos</div>
+      <div class="kpi-value" id="inv-kpi-egresos">$0</div>
+      <div class="kpi-sub">Gastado en compras y salidas</div>
+    </div>
+    <div class="kpi-card verde">
+      <div class="kpi-label">Saldo disponible</div>
+      <div class="kpi-value" id="inv-kpi-saldo">$0</div>
+      <div class="kpi-sub">Inicial + abonos − egresos</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Inversionistas</div>
+      <div class="kpi-value" id="inv-kpi-count">0</div>
+      <div class="kpi-sub">Personas registradas</div>
+    </div>
+  </div>
+
+  <div class="section-box">
+    <div class="toolbar" style="margin-bottom:0;box-shadow:none;border-radius:0;border-bottom:1px solid var(--gris-20);">
+      <input type="text" class="form-input" id="inv-buscar" placeholder="Buscar inversionista..." style="max-width:260px;height:34px;flex:1;" oninput="filtrarInversionistas()">
+      <button class="btn btn-primary btn-mini" onclick="abrirModalInversionista()" style="margin-left:auto;white-space:nowrap;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>&ensp;Nuevo Inversionista</button>
+    </div>
+    <div id="inversionistas-lista">
+      <div style="padding:30px;text-align:center;color:var(--gris-60);font-size:13px;">Cargando...</div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL INVERSIONISTA (nuevo / editar) -->
+<div class="modal-overlay" id="modal-inversionista">
+  <div class="modal">
+    <div class="modal-head">
+      <h3><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Inversionista</h3>
+      <button class="modal-close" onclick="cerrarModalInversionista()">✕</button>
+    </div>
+
+    <div class="form-grid">
+      <div class="form-group full">
+        <label class="form-label">Nombre</label>
+        <input class="form-input" id="inv-nombre" placeholder="Ej: Yuriana">
+      </div>
+      <div class="form-group full">
+        <label class="form-label">Notas (opcional)</label>
+        <input class="form-input" id="inv-notas" placeholder="Detalles del inversionista">
+      </div>
+      <div class="form-group full" id="inv-inicial-wrap">
+        <div id="inv-inicial-label" style="font-size:11px;font-weight:800;color:var(--gris-60);text-transform:uppercase;letter-spacing:.4px;margin:6px 0 2px;">Registrar inversión inicial</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Monto inicial</label>
+        <input class="form-input" id="inv-monto-inicial" placeholder="0" oninput="formatNum(this)">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Fecha</label>
+        <input class="form-input" type="date" id="inv-fecha-inicial">
+      </div>
+    </div>
+
+    <div class="form-footer">
+      <button class="btn btn-secondary" onclick="cerrarModalInversionista()">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarInversionista()"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL MOVIMIENTO (abono / egreso) -->
+<div class="modal-overlay" id="modal-movimiento">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="mov-title">Agregar movimiento</h3>
+      <button class="modal-close" onclick="cerrarModalMovimiento()">✕</button>
+    </div>
+
+    <div class="form-grid">
+      <div class="form-group full">
+        <label class="form-label">Inversionista</label>
+        <input class="form-input" id="mov-inversionista-nombre" readonly style="background:var(--gris-20);">
+      </div>
+      <div class="form-group full" id="mov-origen-field" style="display:none;">
+        <label class="form-label">Origen del egreso</label>
+        <select class="form-select" id="mov-origen" onchange="cambiarOrigenMovimiento()">
+          <option value="manual">Manual</option>
+          <option value="compra">Compra registrada</option>
+          <option value="simulacion">Simulación de compra</option>
+        </select>
+      </div>
+      <div class="form-group full" id="mov-buscar-field" style="display:none;">
+        <label class="form-label">Buscar factura</label>
+        <div class="autocomplete-wrap">
+          <input class="form-input" id="mov-buscar" placeholder="Escribe proveedor / cliente..." autocomplete="off" oninput="buscarFacturasMovimiento()">
+          <div class="autocomplete-list" id="mov-resultados"></div>
+        </div>
+        <div id="mov-fact-preview" style="margin-top:10px;"></div>
+      </div>
+      <div class="form-group full">
+        <label class="form-label">Concepto / detalle</label>
+        <input class="form-input" id="mov-concepto" placeholder="Ej: Compra de mercancía, abono en bancolombia...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Monto</label>
+        <input class="form-input" id="mov-monto" placeholder="0" oninput="formatNum(this)">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Fecha</label>
+        <input class="form-input" type="date" id="mov-fecha">
+      </div>
+    </div>
+
+    <div class="form-footer">
+      <button class="btn btn-secondary" onclick="cerrarModalMovimiento()">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarMovimiento()"><svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL VER FACTURA DE EGRESO (compra) -->
+<div class="modal-overlay" id="modal-inv-factura">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="inv-fact-title">Detalle de la factura</h3>
+      <button class="modal-close" onclick="cerrarDetalleFacturaInv()">✕</button>
+    </div>
+    <div id="inv-fact-body" style="max-height:62vh;overflow-y:auto;"></div>
+  </div>
+</div>
 
 <!-- MODAL SIMULADOR FACTURA -->
 <div class="modal-overlay" id="modal-simulador">

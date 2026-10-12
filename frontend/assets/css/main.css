@@ -1333,4 +1333,191 @@ textarea{
 .mobile-menu-panel{
   background:var(--sidebar-bg);
 }
+
+/* ============================================================
+   INVERSIONES · inversionistas, abonos y egresos
+   ============================================================ */
+.btn-mini{padding:7px 12px;font-size:11px;border-radius:10px;line-height:1;}
+
+.inv-card{
+  background:var(--surface);
+  border:1px solid var(--gris-20);
+  border-radius:14px;
+  padding:16px;
+  margin-bottom:14px;
+  box-shadow:var(--shadow);
+  transition:transform .25s, box-shadow .25s;
+}
+.inv-card:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(26,23,48,.10);}
+
+.inv-card-top{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+}
+.inv-avatar{
+  width:42px;height:42px;
+  border-radius:12px;
+  background:linear-gradient(135deg,var(--fucsia),var(--celeste-dark));
+  color:#fff;
+  font-weight:900;font-size:18px;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+  box-shadow:var(--shadow);
+}
+.inv-datos{flex:1;min-width:160px;}
+.inv-nombre{
+  font-family:'Nunito',sans-serif;
+  font-weight:800;font-size:15px;color:var(--gris-80);
+}
+.inv-notas{color:var(--gris-60);font-weight:600;font-size:12px;}
+.inv-acciones{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+
+.inv-saldo{
+  margin-top:14px;
+  padding:16px 14px;
+  border-radius:14px;
+  background:linear-gradient(135deg,#E8FBF0,#F4FDF8);
+  text-align:center;
+  border:1px solid #C7EED7;
+}
+.inv-saldo-label{
+  font-size:10px;font-weight:800;color:#1D6A3A;
+  text-transform:uppercase;letter-spacing:.6px;opacity:.85;
+}
+.inv-saldo-valor{
+  font-family:'Nunito',sans-serif;
+  font-size:34px;font-weight:900;line-height:1.1;letter-spacing:-.5px;
+  color:var(--verde);margin-top:2px;
+}
+.inv-neg{color:var(--rojo) !important;}
+
+.inv-resumen-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:8px;
+  margin-top:10px;
+}
+.inv-resumen-item{
+  background:var(--surface);
+  border:1px solid var(--gris-20);
+  border-radius:10px;
+  padding:8px 6px;
+  text-align:center;
+  min-width:0;
+}
+.inv-resumen-lbl{
+  display:block;
+  font-size:9px;font-weight:800;color:var(--gris-60);
+  text-transform:uppercase;letter-spacing:.3px;
+}
+.inv-resumen-valor{
+  display:block;
+  font-size:12px;font-weight:800;color:var(--gris-80);
+  margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.inv-acciones{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+
+.inv-movs-head{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-top:14px;padding:10px 12px;
+  background:var(--gris-20);
+  border-radius:10px;
+  cursor:pointer;
+  font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;color:var(--gris-60);
+}
+.inv-movs-head:hover{color:var(--gris-80);}
+.inv-toggle{font-size:12px;}
+
+.inv-movs{display:none;margin-top:10px;}
+.inv-movs.open{display:block;}
+
+.inv-mov-row{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 8px;border-radius:10px;
+  border-bottom:1px solid var(--gris-20);
+}
+.inv-mov-row:last-child{border-bottom:none;}
+.inv-mov-row:hover{background:var(--gris-20);}
+.inv-mov-ico{
+  width:32px;height:32px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:9px;
+  background:var(--gris-20);color:var(--gris-60);
+}
+.inv-ico-verde{background:#D5F5E3;color:#1D6A3A;}
+.inv-ico-roja{background:#FADBD8;color:#943126;}
+.inv-ico-celeste{background:#D4E6F1;color:#1A5276;}
+.inv-mov-info{flex:1;min-width:0;}
+.inv-mov-concepto{
+  font-size:12.5px;font-weight:700;color:var(--gris-80);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.inv-mov-meta{
+  display:flex;align-items:center;gap:5px;flex-wrap:wrap;
+  margin-top:2px;
+}
+.inv-mov-fecha{font-size:10px;color:var(--gris-60);}
+.inv-mov-dot{font-size:9px;color:var(--gris-40);}
+.inv-mov-origen{
+  font-size:9px;font-weight:800;color:var(--celeste-dark);
+  background:var(--celeste-light);padding:1px 6px;border-radius:6px;
+}
+.inv-ver-factura{
+  display:inline-flex;align-items:center;gap:3px;
+  font-size:9.5px;font-weight:800;color:var(--celeste-dark);
+  background:var(--celeste-light);border:none;cursor:pointer;
+  padding:2px 7px;border-radius:6px;
+}
+.inv-ver-factura:hover{filter:brightness(.95);}
+.inv-mov-right{
+  display:flex;align-items:center;gap:8px;flex-shrink:0;
+}
+.inv-mov-monto{font-size:13px;font-weight:800;white-space:nowrap;min-width:74px;text-align:right;}
+.inv-mov-pos{color:#1D6A3A;}
+.inv-mov-neg{color:var(--rojo);}
+.inv-mov-btns{display:flex;gap:2px;flex-shrink:0;}
+.inv-vacio{
+  padding:18px;text-align:center;color:var(--gris-60);
+  font-size:12px;
+  border:1px dashed var(--gris-20);border-radius:10px;
+}
+.inv-fact-preview{
+  background:var(--gris-10);
+  border:1px solid var(--gris-20);
+  border-radius:10px;
+  padding:10px 12px;
+}
+
+/* Inversiones: KPIs en 2 columnas y tarjetas de inversionista en 2 columnas */
+#view-inversiones .kpi-grid{grid-template-columns:repeat(4,1fr);gap:12px;}
+#inversionistas-lista{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:16px;
+  padding:16px;
+  align-items:start;
+}
+#inversionistas-lista .inv-card{margin-bottom:0;padding:14px;}
+#inversionistas-lista > :not(.inv-card){grid-column:1 / -1;}
+@media (max-width:900px){
+  #inversionistas-lista{grid-template-columns:1fr;padding:12px;gap:12px;}
+}
+
+[data-modo="noche"] .inv-card{background:var(--surface-2);}
+[data-modo="noche"] .inv-saldo{background:rgba(39,174,96,.12);border-color:rgba(39,174,96,.3);}
+[data-modo="noche"] .inv-saldo-label{color:#8FE0B0;}
+[data-modo="noche"] .inv-resumen-item{background:rgba(255,255,255,.04);}
+[data-modo="noche"] .inv-movs-head{background:rgba(255,255,255,.05);}
+[data-modo="noche"] .inv-mov-row:hover{background:rgba(255,255,255,.05);}
+
+@media (max-width:640px){
+  .inv-card-top{flex-direction:column;align-items:flex-start;}
+  .inv-acciones{width:100%;justify-content:flex-end;}
+  .inv-mov-origen{display:none;}
+  .inv-mov-monto{min-width:0;font-size:12px;}
+  #view-inversiones .kpi-grid{grid-template-columns:repeat(2,1fr);}
+}
 
