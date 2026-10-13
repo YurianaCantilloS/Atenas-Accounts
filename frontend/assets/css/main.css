@@ -1520,4 +1520,34 @@ textarea{
   .inv-mov-monto{min-width:0;font-size:12px;}
   #view-inversiones .kpi-grid{grid-template-columns:repeat(2,1fr);}
 }
-
+
+/* Chips estilo tienda (categoría / tipo de venta) en el formulario de producto */
+.fx-chips{display:flex;gap:7px;flex-wrap:wrap;}
+.fx-chip{
+  padding:8px 14px;border-radius:50px;border:1.5px solid var(--gris-30,#d8d2e6);
+  background:#fff;font-family:inherit;font-size:12px;font-weight:600;
+  color:var(--texto,#28364a);cursor:pointer;white-space:nowrap;
+  transition:background .15s,color .15s,border-color .15s;
+}
+.fx-chip:hover{border-color:var(--fucsia);}
+.fx-chip.active{background:var(--fucsia);border-color:var(--fucsia);color:#fff;}
+
+/* Desplegable (lista) con diseño del software */
+.fx-select-wrap{position:relative;}
+.fx-select-wrap::after{
+  content:'';position:absolute;right:13px;top:50%;width:8px;height:8px;
+  margin-top:-6px;border-right:2px solid var(--fucsia);border-bottom:2px solid var(--fucsia);
+  transform:rotate(45deg);pointer-events:none;
+}
+select.fx-select{
+  width:100%;appearance:none;-webkit-appearance:none;-moz-appearance:none;
+  border:1.5px solid var(--gris-20);border-radius:10px;
+  padding:9px 32px 9px 12px;font-size:13px;font-weight:600;font-family:inherit;
+  color:var(--texto,#28364a);background:linear-gradient(135deg,#FAF8FF,#FFFFFF);
+  box-shadow:0 4px 14px rgba(122,90,248,.08);
+  outline:none;cursor:pointer;
+}
+select.fx-select:focus{border-color:var(--fucsia);box-shadow:0 0 0 3px rgba(236,35,136,.12);}
+[data-modo="noche"] select.fx-select{
+  background:rgba(26,29,51,.5);border-color:var(--gris-30,#3a3f5c);color:var(--texto,#e8e6f5);
+}

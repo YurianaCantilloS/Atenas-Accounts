@@ -2436,6 +2436,15 @@ let _productoEditando = null; // id del producto si se está editando, null si e
 let _fotoFile = null; // archivo de foto seleccionado (pendiente de subir)
 let _productoStockPrev = null; // {inicial, stock} guardados antes de editar (para ajustar el actual)
 
+/* Selector de píldoras del tipo de venta (Mayorista / Al detal) */
+function setTipoVenta(v){
+  const input = document.getElementById('p-tipo');
+  input.value = v;
+  document.querySelectorAll('#p-tipo-chips .fx-chip').forEach(b => {
+    b.classList.toggle('active', b.dataset.val === v);
+  });
+}
+
 function abrirModalProducto(){
   _productoEditando = null;
   _fotoFile = null;
@@ -2446,6 +2455,8 @@ function abrirModalProducto(){
   document.getElementById('p-costo').value = '';
   document.getElementById('p-precio').value = '';
   document.getElementById('p-stock').value = '0';
+  document.getElementById('p-categoria').value = 'capilar';
+  setTipoVenta('mayor');
   document.getElementById('margen-box').style.display = 'none';
   resetFotoArea();
   document.getElementById('modal-prod').classList.add('open');
@@ -2521,6 +2532,8 @@ function editarProducto(id){
   document.getElementById('p-costo').value = p.costo.toLocaleString('es-CO');
   document.getElementById('p-precio').value = p.precio.toLocaleString('es-CO');
   document.getElementById('p-stock').value = _productoStockPrev.inicial;
+  document.getElementById('p-categoria').value = p.categoria || 'capilar';
+  setTipoVenta(p.tipo_venta || 'mayor');
   calcMargen();
 
   if(p.foto_url){
@@ -2576,7 +2589,16 @@ async function guardarProducto(){
     stockActual = Math.max(0, _productoStockPrev.stock + (stockInicial - _productoStockPrev.inicial));
   }
 
-  const payload = { referencia, nombre, costo, precio, stock: stockActual, stock_inicial: stockInicial };
+  // Nuevos productos quedan OCULTOS en la tienda por defecto; su visibilidad
+  // se controla desde el administrador de la tienda (mostrar_en_tienda).
+  const orig = _productoEditando ? PRODUCTOS.find(x => x.id === _productoEditando) : null;
+
+  const payload = {
+    referencia, nombre, costo, precio, stock: stockActual, stock_inicial: stockInicial,
+    categoria: document.getElementById('p-categoria').value,
+    tipo_venta: document.getElementById('p-tipo').value,
+    mostrar_en_tienda: orig ? !!orig.mostrar_en_tienda : false
+  };
   if(fotoUrl) payload.foto_url = fotoUrl;
   if(!_productoEditando) payload.orden = PRODUCTOS.length + 1;
 
@@ -4817,11 +4839,11 @@ const _fxFacturaCache = new Map();
 async function construirFacturaPDF(opts){
   const cacheKey = opts && opts.cacheKey;
   if(cacheKey && _fxFacturaCache.has(cacheKey)){
-    return { blob: _fxFacturaCache.get(cacheKey), canvases: [] };
+    return _fxFacturaCache.get(cacheKey);
   }
   return _fxEnCola(async () => {
     if(cacheKey && _fxFacturaCache.has(cacheKey)){
-      return { blob: _fxFacturaCache.get(cacheKey), canvases: [] };
+      return _fxFacturaCache.get(cacheKey);
     }
     return _construirFacturaPDF(opts);
   });
@@ -4948,7 +4970,13 @@ async function _construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPag
     });
 
     const blob = pdf.output('blob');
-    if(cacheKey) _fxFacturaCache.set(cacheKey, blob);
+    if(cacheKey){
+      /* Guardamos también los canvas: en el móvil la vista previa usa las
+         imágenes ya renderizadas, sin depender de pdf.js. */
+      const entradas = Array.from(_fxFacturaCache.keys());
+      if(entradas.length > 6) _fxFacturaCache.delete(entradas[0]);
+      _fxFacturaCache.set(cacheKey, { blob, canvases });
+    }
     return { blob, canvases };
   } finally {
     cont.remove();
@@ -5008,29 +5036,35 @@ async function mostrarFacturaPDF(resultado, nombreArchivo){
 
     // Limpiar visor anterior
     const visor = getFacturaVisor();
-    visor.innerHTML = '<div style="text-align:center;padding:20px;color:#fff;font-size:13px;">⏳ Cargando vista previa...</div>';
     visor.style.display = 'block';
 
-    // Cargar pdf.js y renderizar todas las páginas
-    const url = URL.createObjectURL(pdfBlob);
-    const pdfjsLib = window.pdfjsLib;
-    if(!pdfjsLib){ 
-      visor.innerHTML = '<div style="text-align:center;padding:20px;color:#fff;">❌ Error cargando visor</div>';
-      return; 
-    }
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    const pdfDoc = await pdfjsLib.getDocument(url).promise;
-    visor.innerHTML = '';
+    // Cargar pdf.js y renderizar todas las páginas. Si llega a fallar (red,
+    // worker bloqueado...) dejamos la descarga a un toque en vez de pantalla en blanco.
+    try {
+      visor.innerHTML = '<div style="text-align:center;padding:20px;color:#fff;font-size:13px;">⏳ Cargando vista previa...</div>';
+      const url = URL.createObjectURL(pdfBlob);
+      const pdfjsLib = window.pdfjsLib;
+      if(!pdfjsLib) throw new Error('pdf.js no disponible');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      const pdfDoc = await pdfjsLib.getDocument(url).promise;
+      visor.innerHTML = '';
 
-    for(let i = 1; i <= pdfDoc.numPages; i++){
-      const page = await pdfDoc.getPage(i);
-      const viewport = page.getViewport({scale: 1.5});
-      const canvas = document.createElement('canvas');
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      canvas.style.cssText = 'width:100%;display:block;margin-bottom:4px;';
-      await page.render({canvasContext: canvas.getContext('2d'), viewport}).promise;
-      visor.appendChild(canvas);
+      for(let i = 1; i <= pdfDoc.numPages; i++){
+        const page = await pdfDoc.getPage(i);
+        const viewport = page.getViewport({scale: 1.5});
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        canvas.style.cssText = 'width:100%;display:block;margin-bottom:4px;';
+        await page.render({canvasContext: canvas.getContext('2d'), viewport}).promise;
+        visor.appendChild(canvas);
+      }
+    } catch(e){
+      visor.innerHTML =
+        '<div style="text-align:center;padding:20px;color:#fff;font-size:13px;">' +
+        'No se pudo mostrar la vista previa<br>' +
+        '<button class="btn btn-secondary" style="margin-top:12px;font-size:12px;padding:8px 14px;" onclick="descargarFacturaArchivo()">⬇️ Descargar PDF</button>' +
+        '</div>';
     }
 
   } else {
@@ -6872,21 +6906,12 @@ function descargarFacturaPDF(htmlContent, nombreArchivo){
   window._facturaNombre = nombreArchivo;
 }
 
-function imprimirFacturaPreview(){
-  const iframe = document.getElementById('factura-iframe');
-  iframe.contentWindow.print();
-}
-
 function cerrarFacturaPreview(){
   document.getElementById('modal-factura-preview').classList.remove('open');
   const iframe = document.getElementById('factura-iframe');
   iframe.src = '';
   const visor = document.getElementById('factura-img-visor');
   if(visor){ visor.innerHTML = ''; visor.style.display = 'none'; }
-}
-
-function imprimirFacturaPreview(){
-  document.getElementById('factura-iframe').contentWindow.print();
 }
 
 function buscarVentas(query){
