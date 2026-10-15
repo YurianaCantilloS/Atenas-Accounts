@@ -193,6 +193,7 @@ function showView(name){
   // Ocultar botón Resumen en Caja
   const fabResumen = document.querySelector('.fab-resumen');
   if(fabResumen) fabResumen.style.display = name === 'caja' ? 'none' : 'flex';
+  actualizarFabScrollTop();
   if(name === 'envios') cargarEnvios();
   if(name === 'inversiones') cargarInversionistas();
 
@@ -201,6 +202,17 @@ function showView(name){
 
   localStorage.setItem('atenas_vista_actual', name);
 }
+
+/* ── BOTÓN "SUBIR ARRIBA" (solo en Inventario) ─────────────── */
+function actualizarFabScrollTop(){
+  const fab = document.getElementById('fab-scroll-top');
+  if(!fab) return;
+  const viewInv = document.getElementById('view-inventario');
+  const enInventario = viewInv && viewInv.classList.contains('active');
+  fab.classList.toggle('visible', !!enInventario && window.scrollY > 400);
+}
+window.addEventListener('scroll', actualizarFabScrollTop, {passive:true});
+function subirArriba(){ window.scrollTo({top:0, behavior:'smooth'}); }
 
 /** Vuelve a la página en la que estaba el usuario al refrescar/recargar la app */
 function restaurarVistaGuardada(){
