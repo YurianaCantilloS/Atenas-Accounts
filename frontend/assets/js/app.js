@@ -2108,7 +2108,7 @@ async function aplicarOrden(ids){
     const ord = mapa.get(p.id);
     if(ord && p.orden !== ord){ p.orden = ord; cambio = true; }
   });
-  if(!cambio){ showToast('📌 Arrastra un producto con la pestaña ≡ para reordenar', 'info'); return; }
+  if(!cambio){ showToast('📌 Sube o baja con las flechas ▲▼ para reordenar', 'info'); return; }
   ordenarProductos();
   const donde = await persistirOrden(ids);
   if(donde === 'local'){
@@ -2118,9 +2118,7 @@ async function aplicarOrden(ids){
   }
 }
 
-/* Arrastrar para reordenar (funciona con mouse y con el dedo en celular) */
-const GRIP_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="5" r="1.8"/><circle cx="15" cy="5" r="1.8"/><circle cx="9" cy="12" r="1.8"/><circle cx="15" cy="12" r="1.8"/><circle cx="9" cy="19" r="1.8"/><circle cx="15" cy="19" r="1.8"/></svg>';
-let _dnd = { el: null, ghost: null, x: 0, y: 0, gx: 0, gy: 0, activo: false };
+const ORDEN_FLECHAS = `<span class="orden-flechas"><button type="button" class="orden-flecha" data-dir="-1" title="Subir una posición">▲</button><button type="button" class="orden-flecha" data-dir="1" title="Bajar una posición">▼</button></span>`;
 
 let _ordenActivo = localStorage.getItem('atenas_orden_activo') !== '0';
 
@@ -2145,71 +2143,6 @@ function toggleOrden(){
   showToast(_ordenActivo ? '🔓 Reordenar activado' : '🔒 Reordenar desactivado', 'info');
 }
 
-function _crearGhost(el){
-  const g = el.cloneNode(true);
-  g.classList.add('arrastrando-fantasma');
-  let ghostTarget;
-  if(el.tagName === 'TR'){
-    ghostTarget = document.createElement('table');
-    ghostTarget.className = 'arrastrando-fantasma';
-    ghostTarget.appendChild(g);
-  } else {
-    ghostTarget = g;
-  }
-  document.body.appendChild(ghostTarget);
-  const r = el.getBoundingClientRect();
-  ghostTarget.style.width = r.width + 'px';
-  _dnd.ghost = ghostTarget;
-  _dnd.gx = r.width / 2;
-  _dnd.gy = 14;
-  _dnd.ghost.style.transform = `translate(${r.left + 30}px, ${r.top - 14}px)`;
-}
-
-function _limpiarGhost(){
-  if(_dnd.ghost){ _dnd.ghost.remove(); _dnd.ghost = null; }
-}
-
-function _cancelarArrastre(){
-  if(_dnd.el) _dnd.el.style.opacity = '';
-  _limpiarGhost();
-  _dnd.el = null; _dnd.activo = false;
-}
-
-function _objetivoCercano(x, y){
-  const cont = _dnd.el.parentElement;
-  const items = Array.from(cont.children).filter(c => c !== _dnd.el && c.dataset && c.dataset.pid);
-  let target = null;
-  for(const it of items){
-    const r = it.getBoundingClientRect();
-    if(x >= r.left && x <= r.right && y >= r.top - 4 && y <= r.bottom + 4){ target = it; break; }
-  }
-  if(!target){
-    let best = null, bestD = Infinity;
-    for(const it of items){
-      const r = it.getBoundingClientRect();
-      const d = Math.abs(y - (r.top + r.height / 2));
-      if(d < bestD){ bestD = d; best = it; }
-    }
-    target = best;
-  }
-  return target;
-}
-
-function _moverVivo(x, y){
-  const target = _objetivoCercano(x, y);
-  if(!target) return;
-  const r = target.getBoundingClientRect();
-  const antes = y < r.top + r.height / 2;
-  const e = _dnd.el;
-  const r0 = e.getBoundingClientRect();
-  if(antes){
-    target.parentElement.insertBefore(e, target);
-  } else {
-    target.parentElement.insertBefore(e, target.nextElementSibling);
-  }
-  _animarDesplazamiento(e, r0);
-}
-
 function _animarDesplazamiento(e, r0){
   const r1 = e.getBoundingClientRect();
   const dx = r0.left - r1.left, dy = r0.top - r1.top;
@@ -2224,47 +2157,70 @@ function _animarDesplazamiento(e, r0){
   });
 }
 
-document.addEventListener('pointerdown', e => {
-  if(!_ordenActivo) return;
-  const grip = e.target.closest('.grip-pro');
-  if(!grip) return;
-  const el = grip.closest('.inv-card, tr, .inv-mov-row');
-  if(!el || !el.dataset.pid) return;
-  _dnd.el = el;
-  _dnd.x = e.clientX; _dnd.y = e.clientY;
-  _dnd.activo = false;
-  try{ grip.setPointerCapture(e.pointerId); }catch(err){}
-});
+/* ── Flechas ▲▼ para reordenar (mantener presionado sube/baja en cascada) ── */
+const _flechaHold = { btn: null, t: null, iv: null, movio: false };
 
-document.addEventListener('pointermove', e => {
-  if(!_dnd.el) return;
-  const dx = e.clientX - _dnd.x, dy = e.clientY - _dnd.y;
-  if(!_dnd.activo && Math.hypot(dx, dy) > 7){
-    _dnd.activo = true;
-    _crearGhost(_dnd.el);
-    _dnd.el.style.opacity = '0.35';
-  }
-  if(_dnd.activo){
-    e.preventDefault();
-    const g = _dnd.ghost;
-    if(g) g.style.transform = `translate(${e.clientX - _dnd.gx}px, ${e.clientY - _dnd.gy}px)`;
-    _moverVivo(e.clientX, e.clientY);
-  }
-});
+function _moverFlecha(btn){
+  const dir = parseInt(btn.dataset.dir, 10);
+  const row = btn.closest('[data-pid]');
+  if(!row || !row.parentElement) return;
+  const cont = row.parentElement;
+  const items = Array.from(cont.children).filter(c => c && c.dataset && c.dataset.pid);
+  const i = items.indexOf(row);
+  const j = i + dir;
+  if(i < 0 || j < 0 || j >= items.length) return;
+  const other = items[j];
+  const r0 = row.getBoundingClientRect();
+  if(dir < 0) cont.insertBefore(row, other);
+  else cont.insertBefore(other, row);
+  _animarDesplazamiento(row, r0);
+  _flechaHold.movio = true;
+  if(_flechaHold.iv) _seguirFila(row);
+}
 
-document.addEventListener('pointerup', e => {
-  if(!_dnd.el) return;
-  if(!_dnd.activo){ _cancelarArrastre(); return; }
-  _moverVivo(e.clientX, e.clientY);
-  _dnd.el.style.opacity = '';
-  const cont = _dnd.el.parentElement;
-  const ids = Array.from(cont.querySelectorAll('[data-pid]')).map(el => el.dataset.pid);
-  _limpiarGhost();
-  _dnd.el = null; _dnd.activo = false;
+/** Mantiene visible la fila que se está moviendo mientras se mantiene presionado */
+function _seguirFila(row){
+  if(!row) return;
+  const r = row.getBoundingClientRect();
+  const vh = window.innerHeight;
+  if(r.top < 140) window.scrollBy(0, r.top - 180);
+  else if(r.bottom > vh - 80) window.scrollBy(0, r.bottom - (vh - 120));
+}
+
+function _finalizarFlecha(){
+  if(_flechaHold.t){ clearTimeout(_flechaHold.t); _flechaHold.t = null; }
+  if(_flechaHold.iv){ clearInterval(_flechaHold.iv); _flechaHold.iv = null; }
+  if(_flechaHold.btn) _flechaHold.btn.classList.remove('presionada');
+  const btn = _flechaHold.btn;
+  _flechaHold.btn = null;
+  if(!btn || !_flechaHold.movio) return;
+  _flechaHold.movio = false;
+  const row = btn.closest('[data-pid]');
+  const cont = row && row.parentElement;
+  if(!cont) return;
+  const ids = Array.from(cont.children).filter(c => c && c.dataset && c.dataset.pid).map(el => el.dataset.pid);
   aplicarOrden(ids);
-});
+}
 
-document.addEventListener('pointercancel', () => _cancelarArrastre());
+document.addEventListener('pointerdown', e => {
+  const btn = e.target.closest('.orden-flecha');
+  if(!btn || !_ordenActivo) return;
+  e.preventDefault();
+  if(_flechaHold.btn && _flechaHold.btn !== btn) _finalizarFlecha();
+  _flechaHold.btn = btn;
+  _flechaHold.movio = false;
+  btn.classList.add('presionada');
+  try{ btn.setPointerCapture(e.pointerId); }catch(err){}
+  _moverFlecha(btn);
+  _flechaHold.t = setTimeout(() => {
+    _flechaHold.iv = setInterval(() => {
+      if(!_flechaHold.btn){ _finalizarFlecha(); return; }
+      _moverFlecha(_flechaHold.btn);
+    }, 130);
+  }, 450);
+});
+document.addEventListener('pointerup', _finalizarFlecha);
+document.addEventListener('pointercancel', _finalizarFlecha);
 
 /** Genera la siguiente referencia disponible (ATS-001, ATS-002...) */
 function siguienteReferencia(){
@@ -2382,13 +2338,13 @@ function renderInventario(){
           <td style="text-align:right;font-weight:700;">${formatCOP(p.precio)}</td>
           <td style="text-align:center;" class="${claseMargen(pct)}">${pct.toFixed(1)}%</td>
           <td style="text-align:center;">
-<button type="button" class="btn-icon grip-pro" title="Arrastrar para reordenar">${GRIP_ICON}</button>
 <button class="btn-icon" onclick="editarProducto('${p.id}')" title="Editar">
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
 </button>
 <button class="btn-icon" onclick="eliminarProducto('${p.id}')" title="Eliminar" style="color:var(--rojo);">
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
 </button>
+${ORDEN_FLECHAS}
         </tr>
       `;
     }).join('');
@@ -2405,13 +2361,13 @@ function renderInventario(){
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:2px;">
               <div style="font-weight:800;font-size:13px;line-height:1.2;flex:1;min-width:0;">${p.nombre}</div>
               <div style="display:flex;gap:4px;flex-shrink:0;">
-                <button type="button" class="btn-icon grip-pro" title="Arrastrar para reordenar">${GRIP_ICON}</button>
-                <button class="btn-icon" onclick="editarProducto('${p.id}')">
+                                <button class="btn-icon" onclick="editarProducto('${p.id}')">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
                 <button class="btn-icon" onclick="eliminarProducto('${p.id}')" style="color:var(--rojo);">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                 </button>
+                ${ORDEN_FLECHAS}
               </div>
             </div>
             <span class="prod-ref" style="display:inline-block;">${p.referencia}</span>
@@ -2441,23 +2397,17 @@ function renderInventario(){
     if(cardsCont){
       cardsCont.innerHTML = PRODUCTOS.map(p=>{
         const pct = calcularMargenPct(p.costo, p.precio);
-        const thumb = p.foto_url
-          ? `<img src="${p.foto_url}" style="width:64px;height:64px;border-radius:12px;object-fit:cover;flex-shrink:0;">`
-          : `<div style="width:64px;height:64px;border-radius:12px;background:var(--gris-10);display:flex;align-items:center;justify-content:center;font-size:28px;border:1px solid var(--gris-20);flex-shrink:0;">${proIcon(p.icono, 28)}</div>`;
+        const foto = p.foto_url
+          ? `<img class="inv-card-photo" src="${p.foto_url}" alt="">`
+          : `<div class="inv-card-photo">${proIcon(p.icono, 54)}</div>`;
         return `
           <div class="inv-card" data-pid="${p.id}">
-            <div class="inv-card-head">
-              ${thumb}
-              <div class="inv-card-mid">
-                <div class="inv-card-name">${p.nombre}</div>
-                <span class="prod-ref" style="display:inline-block;">${p.referencia}</span>
-              </div>
+            <div class="inv-card-photo-wrap">
+              ${foto}
             </div>
+            <div class="inv-card-name">${p.nombre}</div>
+            <span class="prod-ref" style="display:inline-block;">${p.referencia}</span>
             <div class="inv-card-stats">
-              <div class="inv-stat">
-                <span class="lbl">Stock</span>
-                <span class="badge ${claseStock(p.stock)}" style="font-size:16px;font-weight:900;padding:3px 12px;align-self:flex-start;">${p.stock}</span>
-              </div>
               <div class="inv-stat">
                 <span class="lbl">Costo</span>
                 <strong>${formatCOP(p.costo)}</strong>
@@ -2472,13 +2422,16 @@ function renderInventario(){
               </div>
             </div>
             <div class="inv-card-actions">
-              <button type="button" class="btn-icon grip-pro" title="Arrastrar para reordenar">${GRIP_ICON}</button>
+              <span class="badge ${claseStock(p.stock)} inv-stock-chico"><small>Stock</small>${p.stock}</span>
+              <span class="inv-card-btns">
               <button class="btn-icon" onclick="editarProducto('${p.id}')" title="Editar">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               </button>
               <button class="btn-icon" onclick="eliminarProducto('${p.id}')" title="Eliminar" style="color:var(--rojo);">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
               </button>
+              ${ORDEN_FLECHAS}
+              </span>
             </div>
           </div>
         `;
@@ -2523,6 +2476,9 @@ function renderInventario(){
       `;
     }).join('');
   }
+
+  // Mantiene el filtro de búsqueda activo aunque se vuelva a dibujar el inventario
+  if(_invQuery) _aplicarFiltroInventario();
 }
 
 /* ============================================================
@@ -2739,8 +2695,14 @@ function eliminarProducto(id){
   });
 }
 
+let _invQuery = '';
 function buscarInventario(query){
-  const q = query.toLowerCase();
+  _invQuery = (query || '').toLowerCase();
+  _aplicarFiltroInventario();
+}
+
+function _aplicarFiltroInventario(){
+  const q = _invQuery;
   document.querySelectorAll('#inv-tbody tr').forEach(row=>{
     const texto = row.textContent.toLowerCase();
     row.style.display = texto.includes(q) ? '' : 'none';
