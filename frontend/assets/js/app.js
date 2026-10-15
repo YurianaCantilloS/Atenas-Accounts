@@ -51,28 +51,113 @@ const ICONOS = {
   x:      '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'
 };
 
-/* ── SERVICIO DE CARGA DE IMÁGENES (Cloudinary) ───────────── */
-async function subirACloudinary(archivo) {
-  if (!archivo) return null;
-  const formData = new FormData();
-  formData.append('file', archivo);
-  formData.append('upload_preset', 'preset_productos'); // Asegúrate que este sea el nombre de tu preset en Cloudinary
+/* ── SERVICIO DE CARGA DE IMÁGENES (GitHub + jsDelivr) ──────
+   Misma configuración que la tienda (Tienda_Atenas/js/admin.js).
+   El archivo se guarda en el repositorio y se sirve gratis por
+   https://cdn.jsdelivr.net/gh/OWNER/REPO@BRANCH/CARPETA/archivo.jpg
+   El TOKEN es "fine-grained" con permiso contents:write SOLO sobre
+   ese repositorio. */
+const GITHUB = {
+  owner: 'YurianaCantilloS',
+  repo: 'tienda-imagenes',
+  branch: 'main',
+  path: 'imagenes',
+  token: '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'
+};
 
-  try {
-    const respuesta = await fetch('https://api.cloudinary.com/v1_1/wf9vrurd/image/upload', {
-      method: 'POST',
-      body: formData
+/* Muchos archivos llegan sin tipo MIME (fotos del iPhone…): si no trae
+   tipo, miramos la extensión. */
+function esImagen(archivo){
+  if (archivo.type && archivo.type.startsWith('image/')) return true;
+  if (!archivo.type) return /\.(png|jpe?g|gif|webp|avif|heic|heif|bmp|svg)$/i.test(archivo.name || '');
+  return false;
+}
+
+/* Base64 por trozos: String.fromCharCode con un arreglo gigante revienta
+   el navegador ("Maximum call stack size exceeded"). */
+function bytesABase64(bytes){
+  let bin = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk){
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(bin);
+}
+
+/* Redimensiona/comprime antes de subir: repo ligero y nada de "pesa
+   demasiado". Máx 1600px, JPEG 0.85. */
+async function prepararImagenParaSubir(archivo){
+  try{
+    const tipo = archivo.type || '';
+    if (/gif|svg|webp|avif/i.test(tipo)) return archivo;   /* no tocar animados */
+    if (typeof createImageBitmap !== 'function') return archivo;
+    const bmp = await createImageBitmap(archivo);
+    const max = 1600;
+    const escala = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    if (escala === 1 && archivo.size < 1200000){ if (bmp.close) bmp.close(); return archivo; }
+    const c = document.createElement('canvas');
+    c.width = Math.round(bmp.width * escala);
+    c.height = Math.round(bmp.height * escala);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    if (bmp.close) bmp.close();
+    const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.85));
+    return blob || archivo;
+  } catch(e){
+    return archivo;   /* si algo falla, subimos el original tal cual */
+  }
+}
+
+/** Sube una foto al repositorio de GitHub. Devuelve la URL pública de
+    jsDelivr, o null si algo falla (ya avisa con toast). */
+async function subirFotoAGithub(archivo, prefijo){
+  if (!archivo) return null;
+  if (!esImagen(archivo)){
+    showToast('⚠️ Ese archivo no es una imagen', 'error');
+    return null;
+  }
+  if (!GITHUB.owner || !GITHUB.repo || !GITHUB.token){
+    showToast('⚠️ Falta configurar la subida de fotos (GitHub)', 'error');
+    return null;
+  }
+
+  try{
+    const paraSubir = await prepararImagenParaSubir(archivo);
+
+    /* Nombre único: evita que jsDelivr sirva la versión vieja en caché */
+    const ext = (paraSubir === archivo && archivo.name && archivo.name.split('.').pop()) || 'jpg';
+    const nombre = (prefijo || 'foto') + '-' + Date.now() + '-' +
+                   Math.random().toString(36).slice(2, 8) + '.' + ext;
+    const ruta = GITHUB.path.replace(/^\/+|\/+$/g, '') + '/' + nombre;
+    const contenido = await paraSubir.arrayBuffer();
+    const base64 = bytesABase64(new Uint8Array(contenido));
+
+    const res = await fetch(`https://api.github.com/repos/${GITHUB.owner}/${GITHUB.repo}/contents/${ruta}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': 'Bearer ' + GITHUB.token,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        message: 'Agregar foto ' + nombre,
+        content: base64,
+        branch: GITHUB.branch
+      })
     });
-    if (!respuesta.ok){
-      let detalle = '';
-      try{ const j = await respuesta.json(); detalle = j.error?.message || j.message || ''; }catch(e){}
-      throw new Error('Error al subir la imagen' + (detalle ? ': ' + detalle : ''));
+
+    if (!res.ok){
+      let txt = '';
+      try{ txt = await res.text(); }catch(e){}
+      throw new Error('GitHub respondió ' + res.status + ' ' + txt.slice(0, 140));
     }
-    const datos = await respuesta.json();
-    return datos.secure_url;
-  } catch (error) {
-    console.error('Cloudinary Error:', error);
-    showToast('⚠️ Error al subir la imagen a Cloudinary', 'error');
+
+    const data = await res.json();
+    const urlRaw = data && data.content && data.content.download_url;
+    if (!urlRaw) throw new Error('GitHub no devolvió la URL de la imagen');
+    return `https://cdn.jsdelivr.net/gh/${GITHUB.owner}/${GITHUB.repo}@${GITHUB.branch}/${ruta}`;
+  } catch (error){
+    console.error('Error al subir foto a GitHub:', error);
+    showToast('⚠️ No se pudo subir la imagen: ' + (error.message || 'error'), 'error');
     return null;
   }
 }
@@ -2578,8 +2663,8 @@ async function guardarProducto(){
   let fotoUrl = null;
   if(_fotoFile){
     showToast('Subiendo imagen...', 'info');
-    fotoUrl = await subirACloudinary(_fotoFile);        // subida directa a Cloudinary
-    if(!fotoUrl) showToast('⚠️ No se pudo subir la imagen a Cloudinary', 'error');
+    fotoUrl = await subirFotoAGithub(_fotoFile, 'producto');   // subida directa a GitHub
+    if(!fotoUrl) showToast('⚠️ No se pudo subir la imagen del producto', 'error');
   }
 
   // Stock: el campo es la "Cantidad Inicial". El stock actual se ajusta con la misma diferencia.
@@ -2925,7 +3010,7 @@ async function guardarProveedor(){
   let fotoUrl = null;
   if(_provFotoFile){
     showToast('Subiendo imagen...', 'info');
-    fotoUrl = await subirACloudinary(_provFotoFile);
+    fotoUrl = await subirFotoAGithub(_provFotoFile, 'proveedor');
     if(!fotoUrl) showToast('⚠️ No se pudo subir la imagen del proveedor', 'error');
   }
 
@@ -3109,12 +3194,12 @@ async function guardarCotizacion(){
   await cargarCotizaciones();
 }
 
-/** Resuelve la foto final de un ítem: si tiene foto temporal (base64) la sube a Cloudinary */
+/** Resuelve la foto final de un ítem: si tiene foto temporal (base64) la sube a GitHub */
 async function resolverFotoItem(it){
   if(it.foto_sim){
     const blob = dataURLtoBlob(it.foto_sim);
     if(blob){
-      const url = await subirACloudinary(new File([blob], 'producto_cotizacion.jpg', { type: 'image/jpeg' }));
+      const url = await subirFotoAGithub(new File([blob], 'producto_cotizacion.jpg', { type: 'image/jpeg' }), 'cotizacion');
       if(url) return url;
     }
   }
@@ -4467,12 +4552,16 @@ async function imagenMini(url){
 }
 
 /** Mejor foto disponible para un ítem de factura. Las fotos viejas de Supabase
-   Storage ya no existen (se migraron a Cloudinary), así que si la guardada no es
-   de Cloudinary usamos la foto ACTUAL del producto para que siempre aparezca. */
+   Storage ya no existen, así que si la guardada no es un enlace válido
+   (base64, Cloudinary o jsDelivr/GitHub) usamos la foto ACTUAL del producto
+   para que siempre aparezca. */
 function fotoFactura(item){
   if(!item) return '';
   const guardada = item.foto || item.foto_url || '';
-  if(/^data:/.test(guardada) || /res\.cloudinary\.com\//.test(guardada)) return guardada;
+  if(/^data:/.test(guardada) ||
+     /res\.cloudinary\.com\//.test(guardada) ||
+     /cdn\.jsdelivr\.net\/gh\//.test(guardada) ||
+     /raw\.githubusercontent\.com\//.test(guardada)) return guardada;
   const nombre = item.producto_nombre || item.nombre || '';
   const prod = item.producto_id
     ? PRODUCTOS.find(p => p.id === item.producto_id)
