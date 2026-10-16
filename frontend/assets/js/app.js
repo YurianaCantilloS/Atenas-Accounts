@@ -2048,6 +2048,9 @@ async function cargarProductos(){
   PRODUCTOS = data;
   ordenarProductos();
   renderInventario();
+  /* Precarga en segundo plano las miniaturas de fotos y el logo: la primera
+     factura se genera sin esperar descargas (son cachés de esta sesión). */
+  setTimeout(precargarFotosFactura, 3000);
 }
 
 /* ── Orden personalizado de productos (arrastrar en inventario) ───────────── */
@@ -4481,7 +4484,9 @@ function _fxCargarImg(src){
    aparece en la factura y html2canvas puede dibujarla. */
 async function _fxImagenDataURL(src, max){
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 9000);
+  /* Poco timeout a propósito: si el CDN tarda, se reintenta con la foto
+     original enseguida en vez de dejar al usuario esperando 9 segundos */
+  const timer = setTimeout(() => ctrl.abort(), 4000);
   let r;
   try {
     r = await fetch(src, { mode: 'cors', signal: ctrl.signal });
@@ -4521,8 +4526,20 @@ async function imagenMini(url){
     try { resultado = await _fxImagenDataURL(url, 200); }
     catch(e2){ resultado = ''; }
   }
-  _fxImgMiniCache.set(url, resultado);
+  /* Solo se cachea el éxito: un fallo de red momentáneo no debe dejar la foto
+     borrada para toda la sesión (se reintentará en la próxima factura). */
+  if(resultado) _fxImgMiniCache.set(url, resultado);
   return resultado;
+}
+
+/** Descarga en caliente (3s después de cargar) las miniaturas y el logo para
+    que generar la factura no dependa de la red en el momento de abrirla. */
+let _fxPrecargaFotos = false;
+function precargarFotosFactura(){
+  if(_fxPrecargaFotos) return;
+  _fxPrecargaFotos = true;
+  logoMini().catch(() => {});
+  (PRODUCTOS || []).forEach(p => { if(p.foto_url) imagenMini(p.foto_url); });
 }
 
 /** Mejor foto disponible para un ítem de factura. Las fotos viejas de Supabase
@@ -4783,11 +4800,11 @@ function fxFootHTML(){
   '</div>';
 }
 
-/** Fuentes de la factura */
+/** Fuentes de la factura: index.html ya carga Inter (400-800) y Great Vibes a
+    nivel global, así que pedirlas de nuevo aquí solo agrega descargas en la
+    primera generación (muy notorio con datos móviles). Se deja vacío a propósito. */
 function fxFontLinksHTML(){
-  return '<link rel="preconnect" href="https://fonts.googleapis.com">' +
-    '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +
-    '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Great+Vibes&display=swap" rel="stylesheet">';
+  return '';
 }
 
 /** Construye el HTML completo de la factura (documento fluido usado como plantilla de medición) */
@@ -4919,10 +4936,11 @@ async function _construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPag
     return { blob: new jsPDF().output('blob'), canvases: [] };
   }
 
-  // Resolución de renderizado: menor = mucho más rápido sin notarse en pantalla.
-  // En pantalla el PDF se ve a ~1200px como máximo, así que 1.3 da nitidez de sobra.
+  // Resolución de renderizado. El ancho A4 son ~794px, así que a escala 2 el PDF
+  // queda a ~192 DPI: nítido incluso con zoom. Móvil usa un poco menos para que
+  // no se demore en gama baja.
   const isMobile = window.innerWidth <= 768;
-  const ESCALA = isMobile ? 1.15 : 1.3;
+  const ESCALA = isMobile ? 1.7 : 2;
 
   showToast('⏳ Generando factura…', 'info');
   const logoP = logoMini();
@@ -5029,7 +5047,7 @@ async function _construirFacturaPDF({titulo, fecha, cliente, telefono, metodoPag
     }
     canvases.forEach((canvas, p) => {
       if(p > 0) pdf.addPage();
-      pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297);
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.96), 'JPEG', 0, 0, 210, 297);
     });
 
     const blob = pdf.output('blob');
