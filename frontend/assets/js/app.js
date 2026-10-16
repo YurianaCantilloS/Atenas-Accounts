@@ -2234,17 +2234,125 @@ function siguienteReferencia(){
 }
 
 // Cargar al iniciar
- document.addEventListener('DOMContentLoaded', async () => {
-   initConfig();
-   // Precalienta logo + fuentes de la factura en segundo plano: "Ver factura" abre mucho más rápido
-   logoMini().catch(() => {});
-   if(document.fonts && document.fonts.load){
-     ['600 11px "Inter"', '700 12px "Inter"', '800 18px "Inter"', '400 18px "Great Vibes"']
-       .forEach(f => { try{ document.fonts.load(f); }catch(e){} });
-   }
-   await cargarProductos(); // primero siempre
-   _renderLockToggle();
-   restaurarVistaGuardada(); // al refrescar se queda en la página donde estaba
+/* ============================================================
+   ACCESO · login con Supabase Auth
+   ============================================================ */
+
+/** Correos con permiso para entrar. Vacío = cualquier usuario creado en Supabase. */
+const EMAILS_PERMITIDOS = [];
+
+function _emailPermitido(user){
+  if(!user) return false;
+  if(!EMAILS_PERMITIDOS.length) return true;
+  return EMAILS_PERMITIDOS.includes((user.email || '').toLowerCase());
+}
+
+function mostrarLogin(mensaje){
+  document.body.classList.remove('auth-pendiente', 'app-listo');
+  document.body.classList.add('login-abierto');
+  const err = document.getElementById('login-error');
+  if(err) err.textContent = mensaje || '';
+  const email = document.getElementById('login-email');
+  const pass = document.getElementById('login-password');
+  if(email){
+    if(!email.value) email.value = localStorage.getItem('atenas_login_email') || '';
+    setTimeout(() => { (email.value && pass ? pass : email).focus(); }, 80);
+  }
+}
+
+function mostrarApp(){
+  document.body.classList.remove('auth-pendiente', 'login-abierto');
+  document.body.classList.add('app-listo');
+  arrancarApp();
+}
+
+function toggleLoginPass(){
+  const inp = document.getElementById('login-password');
+  const btn = document.querySelector('.login-eye');
+  if(!inp) return;
+  const ver = inp.type === 'password';
+  inp.type = ver ? 'text' : 'password';
+  if(btn) btn.classList.toggle('activo', ver);
+}
+
+function _setLoginCargando(on){
+  const btn = document.getElementById('login-submit');
+  const txt = document.getElementById('login-btn-text');
+  if(btn) btn.disabled = !!on;
+  if(txt) txt.textContent = on ? 'Ingresando…' : 'Ingresar';
+}
+
+async function iniciarSesion(e){
+  if(e) e.preventDefault();
+  const err = document.getElementById('login-error');
+  const email = (document.getElementById('login-email').value || '').trim().toLowerCase();
+  const pass = document.getElementById('login-password').value || '';
+  if(err) err.textContent = '';
+  if(!email || !pass){ if(err) err.textContent = 'Escribe tu correo y tu contraseña'; return; }
+
+  _setLoginCargando(true);
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  _setLoginCargando(false);
+
+  if(error || !data || !data.user){
+    if(err) err.textContent = 'Correo o contraseña incorrectos. Verifica e intenta de nuevo.';
+    return;
+  }
+  if(!_emailPermitido(data.user)){
+    await sb.auth.signOut();
+    if(err) err.textContent = 'Esta cuenta no tiene acceso a la aplicación.';
+    return;
+  }
+
+  localStorage.setItem('atenas_login_email', email);
+  /* Se limpia la contraseña y se oculta el formulario: así el navegador
+     ofrece guardarla (Google, iCloud, etc.) */
+  document.getElementById('login-password').value = '';
+  mostrarApp();
+}
+
+async function cerrarSesion(){
+  try { await sb.auth.signOut(); } catch(e){}
+  location.reload();
+}
+
+async function verificarSesion(){
+  try{
+    const { data } = await sb.auth.getSession();
+    const session = data && data.session;
+    if(session && _emailPermitido(session.user)){ mostrarApp(); return; }
+    if(session) await sb.auth.signOut();
+  }catch(e){ console.warn('No se pudo revisar la sesión:', e); }
+  mostrarLogin();
+}
+
+/* Si cierran la sesión en otra pestaña (o expira), volvemos al login */
+sb.auth.onAuthStateChange(event => {
+  if(event === 'SIGNED_OUT') mostrarLogin();
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  initConfig(); // el tema se aplica también en el login
+  const form = document.getElementById('login-form');
+  if(form) form.addEventListener('submit', iniciarSesion);
+  verificarSesion();
+});
+
+/** Arranca la app completa (solo con sesión válida): carga datos y restaura la vista */
+let _appIniciada = false;
+async function arrancarApp(){
+  if(_appIniciada) return;
+  _appIniciada = true;
+
+  // Precalienta logo + fuentes de la factura en segundo plano: "Ver factura" abre mucho más rápido
+  logoMini().catch(() => {});
+  if(document.fonts && document.fonts.load){
+    ['600 11px "Inter"', '700 12px "Inter"', '800 18px "Inter"', '400 18px "Great Vibes"']
+      .forEach(f => { try{ document.fonts.load(f); }catch(e){} });
+  }
+  await cargarProductos(); // primero siempre
+  _renderLockToggle();
+  restaurarVistaGuardada(); // al refrescar se queda en la página donde estaba
   const { data: config } = await sb.from('configuracion').select('*').eq('id', 1).single();
   if(config && config.meta_ventas_mes) _metaVentas = config.meta_ventas_mes;
   try{
@@ -2260,12 +2368,12 @@ function siguienteReferencia(){
     await cargarContraEntregas();
     await cargarDashboard();
   }catch(e){ console.warn('Error cargando datos de inicio:', e); }
-   actualizarBotonCerrarMes();
+  actualizarBotonCerrarMes();
   try{
     await cargarContraEntregas();
     await cargarEnvios();
   }catch(e){ console.warn('Error cargando datos extra:', e); }
-     // Fijar mes actual por defecto en filtros
+  // Fijar mes actual por defecto en filtros
   const mesHoy = new Date().getMonth() + 1;
   const selVentas = document.getElementById('f-mes');
   if(selVentas) selVentas.value = mesHoy;
@@ -2273,12 +2381,12 @@ function siguienteReferencia(){
   if(selCompras) selCompras.value = mesHoy;
   const selGastos = document.getElementById('g-mes');
   if(selGastos) selGastos.value = mesHoy;
-   // Mostrar fecha actual en dashboard
+  // Mostrar fecha actual en dashboard
   const hoy = new Date();
   const diasSemana = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
   const fechaEl = document.getElementById('dash-fecha-hoy');
   if(fechaEl) fechaEl.textContent = `${diasSemana[hoy.getDay()]} ${hoy.getDate()} de ${MESES_NOMBRE[hoy.getMonth()+1]} ${hoy.getFullYear()}`;
-});
+}
 /** Calcula el % de margen de un producto */
 function calcularMargenPct(costo, precio){
   if(costo <= 0) return 0;
