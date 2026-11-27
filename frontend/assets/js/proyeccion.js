@@ -576,7 +576,10 @@ const proyeccion = (() => {
         ctx.beginPath(); ctx.arc(punto.x, punto.y, 3.5, 0, Math.PI * 2);
         ctx.fillStyle = estilos.getPropertyValue('--fucsia').trim(); ctx.fill();
         ctx.fillStyle = estilos.getPropertyValue('--gris-80').trim();
-        ctx.textAlign = 'center'; ctx.fillText(formatearMes(filas[i].mes).split(' ')[0], punto.x, alto - 9);
+        // En pantallas estrechas, alternar etiquetas evita que los meses se encimen.
+        if (ancho >= 440 || (i % 2 === 0 && i < puntos.length - 2) || i === puntos.length - 1) {
+          ctx.textAlign = 'center'; ctx.fillText(formatearMes(filas[i].mes).split(' ')[0], punto.x, alto - 9);
+        }
       });
     }
     if (observadorGrafico) observadorGrafico.disconnect();

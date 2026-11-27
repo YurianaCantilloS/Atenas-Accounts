@@ -1978,3 +1978,49 @@ body.login-abierto .login-screen{display:flex;}
 .proy-sincronizacion { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 14px; padding:11px 15px; border-radius:12px; color:var(--accent); background:var(--surface); border:1px solid var(--borde); font-size:.8rem; }
 .proy-sincronizacion.error { color:#9d372e; background:#fff1ec; border-color:#f4c3b8; }
 .proy-sincronizacion button { flex:none; padding:7px 12px; border:0; border-radius:8px; background:#9d372e; color:white; font:inherit; font-weight:700; cursor:pointer; }
+
+/* Proyección en celular: cifras legibles y controles cómodos al tacto. */
+@media (max-width:650px) {
+  #view-proyeccion .proy-hero { padding:20px; gap:14px; }
+  #view-proyeccion .proy-hero h2 { font-size:1.4rem; }
+  #view-proyeccion .proy-hero p { font-size:.8rem; }
+  #view-proyeccion .proy-hero strong { font-size:2.4rem; }
+  #view-proyeccion .proy-anios-wrap { gap:8px; }
+  #view-proyeccion .proy-anio-boton, #view-proyeccion #proy-abrir { min-height:44px; }
+  #view-proyeccion .proy-anio-opciones { left:0; right:auto; z-index:20; }
+  #view-proyeccion .proy-plan-resumen { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+  #view-proyeccion .proy-plan-item { min-height:120px; padding:13px; }
+  #view-proyeccion .proy-plan-item:last-child { grid-column:1 / -1; min-height:100px; }
+  #view-proyeccion .proy-plan-item strong { font-size:1.14rem; line-height:1.25; }
+  #view-proyeccion .proy-plan-item small, #view-proyeccion .proy-plan-item b { font-size:.75rem; }
+  #view-proyeccion .proy-plan-item .proy-kpi-cabecera > span:first-child { font-size:.7rem; }
+  #view-proyeccion .proy-resumen { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; padding:0 0 14px; }
+  #view-proyeccion .proy-info-item { display:grid; gap:3px; padding:10px 12px; background:var(--surface); border:1px solid var(--borde); border-radius:12px; line-height:1.35; }
+  #view-proyeccion .proy-info-item span { font-size:.7rem; }
+  #view-proyeccion .proy-info-item strong { font-size:.82rem; overflow-wrap:anywhere; }
+  #view-proyeccion .proy-info-item:last-child { grid-column:1 / -1; }
+  #view-proyeccion .proy-mensual-encabezado { padding:15px; align-items:flex-start; flex-direction:column; }
+  #view-proyeccion .proy-mensual-encabezado h3 { font-size:1rem; }
+  #view-proyeccion .proy-leyenda { gap:8px 12px; font-size:.75rem; }
+  #view-proyeccion .proy-tarjetas-mes { gap:10px; padding:12px; }
+  #view-proyeccion .proy-mes { padding:15px; }
+  #view-proyeccion .proy-mes-head .proy-mes-nombre { font-size:.9rem; }
+  #view-proyeccion .proy-mes-ojo { width:40px; height:40px; }
+  #view-proyeccion .proy-mes-valor small { font-size:.7rem; }
+  #view-proyeccion .proy-mes-valor strong { font-size:1.3rem; }
+  #view-proyeccion .proy-conceptos { font-size:.85rem; }
+  #view-proyeccion .proy-conceptos li { padding:7px 0; }
+  #view-proyeccion .proy-por-dia { font-size:.8rem; }
+  #view-proyeccion .proy-dialogo[open] { width:calc(100% - 20px); max-height:calc(100dvh - 24px); }
+  #view-proyeccion .proy-dialogo-cabecera { padding:16px; }
+  #view-proyeccion .proy-dialogo-cabecera h2 { font-size:1.2rem; }
+  #view-proyeccion .proy-bloque { margin:12px; padding:15px; }
+  #view-proyeccion .proy-icono { min-width:40px; min-height:40px; }
+  #view-proyeccion .proy-linea-contenedor { height:220px; }
+  body:has(#view-proyeccion.active) .fab-resumen { display:none !important; }
+}
+@media (max-width:480px) {
+  #view-proyeccion .proy-tarjetas-mes { grid-template-columns:minmax(0,1fr); }
+  #view-proyeccion .proy-mes-valor strong { font-size:1.45rem; }
+  #view-proyeccion .proy-sincronizacion { align-items:flex-start; flex-direction:column; line-height:1.4; }
+}
