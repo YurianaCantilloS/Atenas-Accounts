@@ -6,7 +6,7 @@
 <title>Atenas Accounts</title>
 <link rel="icon" type="image/png" href="assets/img/logo.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Poppins:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=Great+Vibes&display=swap">
-<link rel="stylesheet" href="assets/css/main.css?v=9">
+<link rel="stylesheet" href="assets/css/main.css?v=29">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous"></script>
@@ -114,6 +114,10 @@
         <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></span>
         <span class="nav-text">Inversiones</span>
       </div>
+<div class="nav-item" data-view="proyeccion" onclick="showView('proyeccion');toggleMobileMenu()">
+  <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 15l5-5 4 3 5-6"/></svg></span>
+  <span class="nav-text">Proyección</span>
+</div>
 
       <div class="nav-item" data-view="envios" onclick="showView('envios')">
   <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span>
@@ -181,6 +185,10 @@
    <div class="nav-item" data-view="inversiones" onclick="showView('inversiones')">
   <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></span>
   <span class="nav-text">Inversiones</span>
+</div>
+<div class="nav-item" data-view="proyeccion" onclick="showView('proyeccion')">
+  <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 15l5-5 4 3 5-6"/></svg></span>
+  <span class="nav-text">Proyección</span>
 </div>
 
    <div class="nav-item" data-view="envios" onclick="showView('envios');toggleMobileMenu()">
@@ -1987,6 +1995,97 @@
   </div><!-- cierra envios-layout -->
 </div><!-- cierra view-envios -->
 
+<div class="view" id="view-proyeccion">
+  <div class="proy-hero">
+    <div><h2>PROYECCIÓN</h2><p>Tu guía de cuánto vender cada mes</p><strong id="proy-anio-titulo">2027</strong></div>
+    <div class="proy-anios-wrap">
+      <div class="proy-selector-anio" id="proy-selector-anio">
+        <button type="button" id="proy-anio" class="proy-anio-boton" aria-label="Elegir año de la proyección" aria-expanded="false" aria-controls="proy-anio-opciones"><span id="proy-anio-actual">2027</span><span class="proy-anio-flecha" aria-hidden="true">⌄</span></button>
+        <div id="proy-anio-opciones" class="proy-anio-opciones" aria-label="Años disponibles" hidden></div>
+      </div>
+      <button type="button" class="btn btn-secondary" id="proy-abrir">Configuración</button>
+    </div>
+  </div>
+  <section class="proy-config-resumen">
+    <div id="proy-plan-resumen" class="proy-plan-resumen"></div>
+  </section>
+  <div id="proy-resumen" class="proy-resumen"></div>
+  <details class="proy-panel proy-formula-panel"><summary>Ver cómo se calcula la meta</summary>
+    <div class="proy-seccion-head"><div><h3>¿Cómo se calcula la meta?</h3><p>La suma de lo que necesitas cubrir en el mes.</p></div>
+      <label>Ver el cálculo de <select id="proy-mes-formula" aria-label="Mes del cálculo"></select></label>
+    </div>
+    <div id="proy-formula" class="proy-formula"></div>
+  </details>
+  <section class="proy-panel proy-mensual-panel">
+    <div class="proy-mensual-encabezado"><h3>Estimado de ventas mes a mes</h3><div class="proy-leyenda"><span class="sueldo">Sueldo</span><span class="deudas">Pago deudas</span><span class="utilidad">Utilidad</span><span class="compras">Compras</span></div></div>
+    <div id="proy-tarjetas-mes" class="proy-tarjetas-mes"></div>
+  </section>
+  <h3 class="proy-titulo">Gráfico de ventas</h3>
+  <div id="proy-graficos" class="proy-graficos"></div>
+  <dialog id="proy-dialogo" class="proy-dialogo" aria-labelledby="proy-dialogo-titulo">
+    <div class="proy-dialogo-cabecera">
+      <div><h2 id="proy-dialogo-titulo">Detalles de la proyección</h2><p>Configura tu plan y aplica cada cambio.</p></div>
+      <div class="proy-dialogo-acciones"><button type="button" class="proy-icono" id="proy-editar" aria-label="Editar" title="Editar"></button><button type="button" class="proy-icono" id="proy-cerrar" aria-label="Cerrar" title="Cerrar"></button></div>
+    </div>
+  <div id="proy-aviso" class="proy-aviso" role="status" hidden><span></span><button type="button" id="proy-descartar" hidden>Descartar cambios</button></div>
+  <div id="proy-detalle-lectura" class="proy-bloque"></div>
+  <div class="proy-bloque" data-proy-grupo="config">
+    <form id="proy-config" class="proy-config-dias" novalidate>
+      <input name="inicio" type="hidden">
+      <input name="meses" type="hidden">
+      <label for="proy-dias">Días que trabajas al mes</label>
+      <div class="proy-control-plazo proy-control-dias">
+        <button type="button" class="proy-icono" id="proy-dias-menos" aria-label="Disminuir días">−</button>
+        <input id="proy-dias" name="dias" type="number" min="1" max="31" step="1" required>
+        <button type="button" class="proy-icono" id="proy-dias-mas" aria-label="Aumentar días">+</button>
+        <span>días al mes</span>
+      </div>
+      <p class="proy-nota">La meta de cada mes se divide entre estos días para calcular cuánto necesitas vender por día.</p>
+      <button hidden type="submit" id="proy-aplicar-config" aria-label="Guardar configuración"></button>
+    </form>
+    <p id="proy-estado" class="proy-nota" role="status" hidden></p>
+  </div>
+  <div class="proy-bloque" data-proy-grupo="deudas">
+    <h3 id="proy-deudas-titulo">Deudas y pendientes</h3>
+    <form id="proy-importar" class="proy-buscar-pendientes">
+      <div id="proy-lista-pendientes" class="proy-lista-pendientes" aria-label="Pendientes de Caja"></div>
+    </form>
+    <p id="proy-pendientes-nota" class="proy-nota">Se copia el saldo pendiente. Puedes ajustarlo para tu proyección.</p>
+    <div id="proy-deudas-editor">
+      <section id="proy-deudas-guardadas"><h4>Deudas agregadas</h4><div id="proy-deudas"></div></section>
+      <button type="button" class="proy-icono" id="proy-agregar-manual" aria-label="Agregar deuda manual" title="Agregar deuda manual"></button>
+      <form id="proy-form-manual" class="proy-fields proy-form-manual" hidden>
+        <label>Descripción <input name="nombre" type="text" maxlength="100" required></label>
+        <label>Monto (COP) <input name="monto" type="text" inputmode="numeric" data-proy-monto required></label>
+        <button class="proy-icono" id="proy-guardar-manual" aria-label="Guardar deuda" title="Guardar deuda"></button>
+        <button type="button" class="proy-icono" id="proy-cancelar-manual" aria-label="Cancelar" title="Cancelar"></button>
+      </form>
+    </div>
+    <div id="proy-pagos-editor">
+    <form id="proy-plazo">
+      <label for="proy-plazo-meses">Pagar la deuda total en</label>
+      <div class="proy-control-plazo">
+        <button type="button" id="proy-menos" class="proy-icono" aria-label="Reducir meses">−</button>
+        <input id="proy-plazo-meses" name="cuotas" type="number" min="1" max="12" step="1" value="10" required aria-label="Cantidad de meses">
+        <button type="button" id="proy-mas" class="proy-icono" aria-label="Aumentar meses">+</button>
+        <span>meses</span>
+      </div>
+    </form>
+    <p id="proy-deuda-resumen" class="proy-nota"></p>
+    </div>
+  </div>
+  <div class="proy-bloque" data-proy-grupo="partidas">
+
+    <p id="proy-partida-nota" class="proy-nota">Define el monto y sus meses de vigencia.</p>
+    <div class="proy-categorias">
+      <section data-proy-tipo="sueldo"><div id="proy-sueldo"></div><button type="button" class="proy-icono" data-proy-add="partidas" data-tipo="sueldo" aria-label="Agregar sueldo" title="Agregar sueldo"></button></section>
+      <section data-proy-tipo="compras"><div id="proy-compras"></div><button type="button" class="proy-icono" data-proy-add="partidas" data-tipo="compras" aria-label="Agregar compras" title="Agregar compras"></button></section>
+      <section data-proy-tipo="utilidad"><div id="proy-utilidad"></div><button type="button" class="proy-icono" data-proy-add="partidas" data-tipo="utilidad" aria-label="Agregar utilidad" title="Agregar utilidad"></button></section>
+    </div>
+  </div>
+  </dialog>
+</div>
+
 <!-- ===================== INVERSIONES ===================== -->
 <div class="view" id="view-inversiones">
   <div class="mod-head">
@@ -2281,6 +2380,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/js/supabase-config.js?v=9"></script>
 <script src="assets/js/utils.js?v=9"></script>
-<script src="assets/js/app.js?v=11"></script>
+<script src="assets/js/app.js?v=14"></script>
+<script src="assets/js/proyeccion.js?v=19"></script>
 </body>
 </html>

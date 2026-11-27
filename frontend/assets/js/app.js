@@ -170,6 +170,7 @@ function showView(name){
   actualizarFabScrollTop();
   if(name === 'envios') cargarEnvios();
   if(name === 'inversiones') cargarInversionistas();
+  if(name === 'proyeccion') proyeccion.abrir();
 
   // La alerta roja de cierre de mes NO se muestra en la vista Caja
   actualizarVisibilidadBannerCierre();
@@ -5609,6 +5610,7 @@ async function cargarPendientes(){
   if(error){ showToast('❌ Error cargando pendientes', 'error'); return; }
   PENDIENTES = data;
   renderPendientes();
+  proyeccion.actualizarPendientes();
 }
 
 function renderPendientes(){
@@ -7395,6 +7397,16 @@ let _copyTimer = null;
 document.addEventListener('click', (e) => {
   const t = e.target;
   if(!t || t.nodeType !== 1) return;
+  if(t.closest('#view-proyeccion')){
+    const valorKpi = t.closest('.proy-plan-item strong');
+    if(!valorKpi) return;
+    e.stopPropagation();
+    const valor = valorKpi.textContent.replace(/[^0-9]/g, '');
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(valor).then(() => showToast('📋 Copiado: ' + valor, 'info')).catch(() => {});
+    }
+    return;
+  }
   if(t.closest('button, input, select, textarea, a, label, [onclick], [onchange], [contenteditable], [data-no-copy]')) return;
   const texto = Array.from(t.childNodes).filter(n => n.nodeType === 3).map(n => n.textContent).join('').trim();
   if(!texto) return;
