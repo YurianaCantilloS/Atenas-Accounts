@@ -51,20 +51,7 @@ const ICONOS = {
   x:      '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'
 };
 
-/* ── SERVICIO DE CARGA DE IMÁGENES (GitHub + jsDelivr) ──────
-   Misma configuración que la tienda (Tienda_Atenas/js/admin.js).
-   El archivo se guarda en el repositorio y se sirve gratis por
-   https://cdn.jsdelivr.net/gh/OWNER/REPO@BRANCH/CARPETA/archivo.jpg
-   El TOKEN es "fine-grained" con permiso contents:write SOLO sobre
-   ese repositorio. */
-const GITHUB = {
-  owner: 'YurianaCantilloS',
-  repo: 'tienda-imagenes',
-  branch: 'main',
-  path: 'imagenes',
-  token: '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'
-};
-
+/* ── SERVICIO DE CARGA DE IMÁGENES ────────────────────── */
 /* Muchos archivos llegan sin tipo MIME (fotos del iPhone…): si no trae
    tipo, miramos la extensión. */
 function esImagen(archivo){
@@ -115,46 +102,33 @@ async function subirFotoAGithub(archivo, prefijo){
     showToast('⚠️ Ese archivo no es una imagen', 'error');
     return null;
   }
-  if (!GITHUB.owner || !GITHUB.repo || !GITHUB.token){
-    showToast('⚠️ Falta configurar la subida de fotos (GitHub)', 'error');
-    return null;
-  }
-
   try{
-    const paraSubir = await prepararImagenParaSubir(archivo);
+    const { data } = await sb.auth.getSession();
+    const token = data?.session?.access_token;
+    if (!token) throw new Error('Vuelve a iniciar sesión e inténtalo de nuevo.');
 
-    /* Nombre único: evita que jsDelivr sirva la versión vieja en caché */
-    const ext = (paraSubir === archivo && archivo.name && archivo.name.split('.').pop()) || 'jpg';
-    const nombre = (prefijo || 'foto') + '-' + Date.now() + '-' +
-                   Math.random().toString(36).slice(2, 8) + '.' + ext;
-    const ruta = GITHUB.path.replace(/^\/+|\/+$/g, '') + '/' + nombre;
-    const contenido = await paraSubir.arrayBuffer();
-    const base64 = bytesABase64(new Uint8Array(contenido));
-
-    const res = await fetch(`https://api.github.com/repos/${GITHUB.owner}/${GITHUB.repo}/contents/${ruta}`, {
-      method: 'PUT',
+    const imagen = await prepararImagenParaSubir(archivo);
+    if (imagen.size > 3 * 1024 * 1024){
+      throw new Error('La imagen debe pesar como máximo 3 MB después de comprimirla.');
+    }
+    const extension = imagen === archivo ? /\.([a-z0-9]+)$/i.exec(archivo.name)?.[1]?.toLowerCase() : 'jpg';
+    const res = await fetch('/api/subir-imagen', {
+      method: 'POST',
       headers: {
-        'Authorization': 'Bearer ' + GITHUB.token,
-        'Accept': 'application/vnd.github+json',
+        Authorization: 'Bearer ' + token,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        message: 'Agregar foto ' + nombre,
-        content: base64,
-        branch: GITHUB.branch
+        prefijo,
+        extension: extension || (imagen.type === 'image/jpeg' ? 'jpg' : imagen.type.split('/')[1]),
+        contenido: bytesABase64(new Uint8Array(await imagen.arrayBuffer()))
       })
     });
-
-    if (!res.ok){
-      let txt = '';
-      try{ txt = await res.text(); }catch(e){}
-      throw new Error('GitHub respondió ' + res.status + ' ' + txt.slice(0, 140));
+    const resultado = await res.json().catch(() => null);
+    if (!res.ok || !resultado?.url){
+      throw new Error(resultado?.error || 'El servicio de imágenes no respondió correctamente.');
     }
-
-    const data = await res.json();
-    const urlRaw = data && data.content && data.content.download_url;
-    if (!urlRaw) throw new Error('GitHub no devolvió la URL de la imagen');
-    return `https://cdn.jsdelivr.net/gh/${GITHUB.owner}/${GITHUB.repo}@${GITHUB.branch}/${ruta}`;
+    return resultado.url;
   } catch (error){
     console.error('Error al subir foto a GitHub:', error);
     showToast('⚠️ No se pudo subir la imagen: ' + (error.message || 'error'), 'error');
@@ -2742,8 +2716,8 @@ async function guardarProducto(){
   let fotoUrl = null;
   if(_fotoFile){
     showToast('Subiendo imagen...', 'info');
-    fotoUrl = await subirFotoAGithub(_fotoFile, 'producto');   // subida directa a GitHub
-    if(!fotoUrl) showToast('⚠️ No se pudo subir la imagen del producto', 'error');
+    fotoUrl = await subirFotoAGithub(_fotoFile, 'producto');
+    if(!fotoUrl) return;
   }
 
   // Stock: el campo es la "Cantidad Inicial". El stock actual se ajusta con la misma diferencia.
