@@ -6,7 +6,7 @@
 <title>Atenas Accounts</title>
 <link rel="icon" type="image/png" href="assets/img/logo.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Poppins:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=Great+Vibes&display=swap">
-<link rel="stylesheet" href="assets/css/main.css?v=31">
+<link rel="stylesheet" href="assets/css/main.css?v=32">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous"></script>
@@ -124,7 +124,9 @@
   <span class="nav-text">Envíos</span>
 </div>
 
-      <div class="nav-label">General</div>
+      <div class="nav-label">Marketing</div>
+<div class="nav-item" data-view="contenido" onclick="showView('contenido');toggleMobileMenu()"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="m10 8 6 4-6 4z"/></svg></span><span class="nav-text">Contenido</span></div>
+<div class="nav-label">General</div>
       <div class="nav-item" data-view="contactos" onclick="showView('contactos');toggleMobileMenu()">
         <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
         <span class="nav-text">Contactos</span>
@@ -196,7 +198,9 @@
   <span class="nav-text">Envíos</span>
 </div>
 
-    <div class="nav-label">General</div>
+    <div class="nav-label">Marketing</div>
+<div class="nav-item" data-view="contenido" onclick="showView('contenido')"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="m10 8 6 4-6 4z"/></svg></span><span class="nav-text">Contenido</span></div>
+<div class="nav-label">General</div>
     <div class="nav-item" data-view="contactos" onclick="showView('contactos')">
       <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
       <span class="nav-text">Contactos</span>
@@ -2087,6 +2091,50 @@
   </dialog>
 </div>
 
+<div class="view" id="view-contenido">
+  <header class="cont-hero">
+    <div><h2>CONTENIDO</h2><p>Planifica tus ideas y mira cómo se verá tu perfil</p></div>
+    <div class="cont-redes" role="group" aria-label="Red social">
+      <button type="button" data-cont-red="instagram" aria-pressed="true"><span class="cont-red-icon instagram">IG</span>Instagram</button>
+      <button type="button" data-cont-red="tiktok" aria-pressed="false"><span class="cont-red-icon tiktok">♪</span>TikTok</button>
+    </div>
+  </header>
+  <div class="cont-aviso" id="cont-aviso" role="status" hidden><span></span><button type="button" id="cont-reintentar">Reintentar</button></div>
+  <div class="cont-estados" id="cont-estados" aria-label="Filtrar por estado"></div>
+  <div class="cont-layout">
+    <section class="cont-panel cont-planificador">
+      <div class="cont-panel-head"><div><h3 id="cont-titulo-red">Planificador · Instagram</h3><p>Empieza con una idea y complétala cuando quieras</p></div></div>
+      <form id="cont-idea-form" class="cont-idea-form"><label class="cont-sr" for="cont-idea">Nueva idea</label><input id="cont-idea" name="titulo" maxlength="200" placeholder="Escribe una idea para tu contenido..." required><button type="submit" class="cont-btn-primary">+ Idea</button></form>
+      <div id="cont-lista" class="cont-lista"></div>
+    </section>
+    <section class="cont-panel cont-perfil">
+      <div class="cont-panel-head"><div><h3>Vista previa del perfil</h3><p>Organiza las portadas como quieras</p></div></div>
+      <div class="cont-telefono">
+        <div class="cont-perfil-head"><span class="cont-avatar"><img src="assets/img/logo.png" alt=""></span><div><strong id="cont-perfil-nombre">Tu perfil</strong><small id="cont-perfil-cantidad">0 publicaciones planificadas</small></div><button type="button" id="cont-editar-perfil" class="cont-icon-btn" aria-label="Editar nombre del perfil" title="Editar nombre">✎</button></div>
+        <form id="cont-perfil-form" class="cont-perfil-form" hidden><label for="cont-perfil-input">Nombre de usuario</label><div><span>@</span><input id="cont-perfil-input" maxlength="50" placeholder="tu.usuario"><button type="submit" class="cont-btn-primary">Guardar</button><button type="button" id="cont-cancelar-perfil" class="cont-icon-btn" aria-label="Cancelar">×</button></div></form>
+        <div class="cont-perfil-tabs"><span>▦ PUBLICACIONES</span><span>▶ VIDEOS</span></div>
+        <div id="cont-cuadricula" class="cont-cuadricula"></div>
+        <p class="cont-arrastrar-ayuda">Arrastra el asa o usa las flechas para ordenar.</p>
+      </div>
+    </section>
+  </div>
+  <dialog id="cont-dialogo" class="cont-dialogo" aria-labelledby="cont-dialogo-titulo">
+    <div class="cont-dialogo-head"><div><h2 id="cont-dialogo-titulo">Detalle del contenido</h2><p>Tu idea, lista para ir tomando forma.</p></div><button type="button" id="cont-cerrar" class="cont-icon-btn" aria-label="Cerrar">×</button></div>
+    <form id="cont-detalle-form" class="cont-detalle-form">
+      <label>Idea <input name="titulo" maxlength="200" required placeholder="¿Qué quieres compartir?"></label>
+      <fieldset class="cont-red-check"><legend>Redes sociales</legend><label><input type="checkbox" name="redes" value="instagram"> Instagram</label><label><input type="checkbox" name="redes" value="tiktok"> TikTok</label></fieldset>
+      <div class="cont-campos-dos"><label>Formato <select name="formato"><option value="video">Video / reel</option><option value="carrusel">Carrusel</option><option value="foto">Foto</option></select></label><label>Estado <select name="estado"><option value="idea">Idea</option><option value="desarrollo">En desarrollo</option><option value="listo">Listo para publicar</option><option value="publicado">Publicado</option></select></label></div>
+      <label>Fecha prevista <input name="fecha" type="date"></label>
+      <label>Hook <span class="cont-ayuda">La frase para captar la atención</span><textarea name="hook" rows="2" placeholder="¿Cómo empieza tu publicación?"></textarea></label>
+      <label>Contenido del video o carrusel <textarea name="guion" rows="5" placeholder="Escribe el guion o las ideas de cada parte..."></textarea></label>
+      <label>Llamada a la acción <textarea name="llamada_accion" rows="2" placeholder="¿Qué quieres que haga tu audiencia?"></textarea></label>
+      <div class="cont-portada"><div><strong>Portada para la vista previa</strong><p>Sube una imagen para visualizarla en el perfil.</p><label class="cont-btn-soft" for="cont-portada-archivo">Elegir imagen</label><input id="cont-portada-archivo" type="file" accept="image/*" hidden><button type="button" id="cont-quitar-portada" class="cont-text-btn" hidden>Quitar portada</button></div><img id="cont-portada-vista" alt="Vista previa de la portada" hidden></div>
+      <p id="cont-error-form" class="cont-error-form" role="alert" hidden></p><button type="button" id="cont-descartar" class="cont-text-btn" hidden>Descartar cambios</button>
+      <div class="cont-acciones"><button type="button" id="cont-eliminar" class="cont-btn-danger">Eliminar</button><button type="submit" class="cont-btn-primary" id="cont-guardar">Guardar cambios</button></div>
+    </form>
+  </dialog>
+</div>
+
 <!-- ===================== INVERSIONES ===================== -->
 <div class="view" id="view-inversiones">
   <div class="mod-head">
@@ -2381,7 +2429,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="assets/js/supabase-config.js?v=9"></script>
 <script src="assets/js/utils.js?v=9"></script>
-<script src="assets/js/app.js?v=14"></script>
+<script src="assets/js/app.js?v=15"></script>
 <script src="assets/js/proyeccion.js?v=21"></script>
+<script src="assets/js/contenido.js?v=1"></script>
 </body>
 </html>

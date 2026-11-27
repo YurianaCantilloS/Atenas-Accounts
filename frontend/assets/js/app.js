@@ -171,6 +171,7 @@ function showView(name){
   if(name === 'envios') cargarEnvios();
   if(name === 'inversiones') cargarInversionistas();
   if(name === 'proyeccion') proyeccion.abrir();
+  if(name === 'contenido') contenido.abrir();
 
   // La alerta roja de cierre de mes NO se muestra en la vista Caja
   actualizarVisibilidadBannerCierre();
