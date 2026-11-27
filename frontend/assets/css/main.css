@@ -1975,3 +1975,6 @@ body.login-abierto .login-screen{display:flex;}
 .proy-control-dias input { width:60px; font-weight:700; }
 .proy-control-dias .proy-icono { font-size:1.2rem; font-weight:700; }
 .proy-config-dias .proy-nota { margin:4px 0 0; line-height:1.5; }
+.proy-sincronizacion { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 14px; padding:11px 15px; border-radius:12px; color:var(--accent); background:var(--surface); border:1px solid var(--borde); font-size:.8rem; }
+.proy-sincronizacion.error { color:#9d372e; background:#fff1ec; border-color:#f4c3b8; }
+.proy-sincronizacion button { flex:none; padding:7px 12px; border:0; border-radius:8px; background:#9d372e; color:white; font:inherit; font-weight:700; cursor:pointer; }

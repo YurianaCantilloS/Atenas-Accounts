@@ -245,6 +245,22 @@ const proyeccion = (() => {
   const maxMonto = 1000000000000;
   let plan;
   let clave;
+  let revisionActual = null;
+  let colaGuardado = Promise.resolve();
+  let errorGuardado = null;
+  let ultimoPendiente = null;
+  let numeroGuardado = 0;
+  let ultimoGuardado = 0;
+  let numeroCarga = 0;
+  let cargaFallida = null;
+  const estadoNube = document.getElementById('proy-sincronizacion');
+  const reintentar = document.getElementById('proy-reintentar');
+  function mostrarEstadoNube(mensaje, error = false) {
+    estadoNube.hidden = !mensaje;
+    estadoNube.classList.toggle('error', error);
+    estadoNube.querySelector('span').textContent = mensaje;
+    reintentar.hidden = !error || errorGuardado === 'conflicto';
+  }
   let mesFormula;
   let observadorGrafico;
   document.getElementById('proy-mes-formula').addEventListener('change', event => {
@@ -297,14 +313,57 @@ const proyeccion = (() => {
 
   function guardar() {
     if (planAnterior) return;
-    const estado = document.getElementById('proy-estado');
-    try {
-      localStorage.setItem(clave, JSON.stringify(plan));
-      estado.textContent = 'Plan guardado en este navegador.';
-    } catch {
-      estado.textContent = 'No se pudo guardar el plan en este navegador.';
-    }
+    const copia = JSON.parse(JSON.stringify(plan));
+    const usuario = usuarioActual;
+    const anio = Number(plan.inicio.slice(0, 4));
+    ultimoPendiente = { datos: copia, usuario, anio };
+    const secuencia = ++numeroGuardado;
+    if (errorGuardado) return;
+    mostrarEstadoNube('Guardando proyección...');
+    colaGuardado = colaGuardado.then(async () => {
+      if (errorGuardado) return;
+      const datos = copia;
+      let respuesta;
+      if (revisionActual === null) {
+        respuesta = await sb.from('proyecciones').insert({ usuario_id: usuario, anio, datos, revision: 1 }).select('revision').single();
+      } else {
+        respuesta = await sb.from('proyecciones').update({ datos, revision: revisionActual + 1, actualizado_en: new Date().toISOString() })
+          .eq('usuario_id', usuario).eq('anio', anio).eq('revision', revisionActual).select('revision').maybeSingle();
+      }
+      if (respuesta.error) {
+        if (respuesta.error.code === '23505') throw { conflicto: true };
+        throw respuesta.error;
+      }
+      if (!respuesta.data) throw { conflicto: true };
+      revisionActual = Number(respuesta.data.revision);
+      ultimoGuardado = secuencia;
+      if (secuencia === numeroGuardado) {
+        ultimoPendiente = null;
+        mostrarEstadoNube('');
+      }
+    }).catch(error => {
+      errorGuardado = error?.conflicto ? 'conflicto' : 'conexion';
+      mostrarEstadoNube(errorGuardado === 'conflicto'
+        ? 'Esta proyección cambió en otro dispositivo. Tus cambios no se guardaron; copia lo necesario y recarga para ver la versión actual.'
+        : 'No se pudo guardar en Supabase. Tus cambios siguen abiertos; comprueba la conexión y vuelve a intentar.', true);
+    });
   }
+
+  reintentar.addEventListener('click', () => {
+    if (cargaFallida !== null) {
+      cargarAnio(cargaFallida);
+      return;
+    }
+    if (!ultimoPendiente || errorGuardado !== 'conexion') return;
+    errorGuardado = null;
+    guardar();
+  });
+  window.addEventListener('beforeunload', event => {
+    if (ultimoPendiente || ultimoGuardado !== numeroGuardado) {
+      event.preventDefault();
+      event.returnValue = '';
+    }
+  });
 
   function actualizarPendientes() {
     if (!plan) return;
@@ -841,19 +900,61 @@ const proyeccion = (() => {
     renderizarResultados();
   });
 
-  function cargarAnio(anio) {
+  async function cargarAnio(anio) {
+    await colaGuardado;
+    if (ultimoPendiente) {
+      mostrarEstadoNube(errorGuardado === 'conflicto'
+        ? 'Esta proyección cambió en otro dispositivo. Tus cambios no se guardaron; copia lo necesario y recarga para ver la versión actual.'
+        : 'No se pudo guardar en Supabase. Reintenta antes de cambiar de año.', true);
+      return;
+    }
+    const carga = ++numeroCarga;
+    const usuario = usuarioActual;
     clave = 'atenas_proyeccion_' + usuarioActual + '_' + anio;
     pendienteSeleccionado = null;
     const base = { inicio: anio + '-01', meses: 12, reserva: 0, dias: 26, plazo: 10, deudas: [], partidas: [], ventas: {} };
+    plan = null;
+    cargaFallida = null;
+    mostrarEstadoNube('Cargando proyección...');
+    document.getElementById('proy-anio-actual').textContent = String(anio);
+    document.getElementById('proy-anio-titulo').textContent = String(anio);
+    for (const id of ['proy-plan-resumen', 'proy-resumen', 'proy-tarjetas-mes', 'proy-graficos']) document.getElementById(id).innerHTML = '';
     try {
-      let guardado = localStorage.getItem(clave);
-      if (!guardado && anio === 2027) guardado = localStorage.getItem('atenas_proyeccion_' + usuarioActual);
-      const anterior = JSON.parse(guardado);
+      let respuesta = await sb.from('proyecciones').select('datos,revision').eq('usuario_id', usuario).eq('anio', anio).maybeSingle();
+      if (respuesta.error) throw respuesta.error;
+      if (carga !== numeroCarga || usuario !== usuarioActual) return;
+      let anterior = respuesta.data?.datos || null;
+      revisionActual = respuesta.data ? Number(respuesta.data.revision) : null;
+      if (!anterior) {
+        let guardado = null;
+        try {
+          guardado = localStorage.getItem(clave);
+          if (!guardado && anio === 2027) guardado = localStorage.getItem('atenas_proyeccion_' + usuario);
+        } catch { /* El plan en la nube no depende del almacenamiento local. */ }
+        if (guardado) {
+          anterior = JSON.parse(guardado);
+          const migracion = await sb.from('proyecciones').insert({ usuario_id: usuario, anio, datos: anterior, revision: 1 }).select('revision').single();
+          if (migracion.error?.code === '23505') {
+            respuesta = await sb.from('proyecciones').select('datos,revision').eq('usuario_id', usuario).eq('anio', anio).single();
+            if (respuesta.error) throw respuesta.error;
+            anterior = respuesta.data.datos;
+            revisionActual = Number(respuesta.data.revision);
+          } else {
+            if (migracion.error) throw migracion.error;
+            revisionActual = Number(migracion.data.revision);
+          }
+        }
+      }
+      if (carga !== numeroCarga || usuario !== usuarioActual) return;
       plan = { ...base, ...anterior, inicio: base.inicio, meses: 12 };
       plan.plazo = Math.max(1, Math.min(12, Math.trunc(Number(plan.plazo) || 10)));
       plan.dias = Math.max(1, Math.min(31, Math.trunc(Number(plan.dias) || 26)));
-    } catch {
-      plan = base;
+      mostrarEstadoNube('');
+    } catch (error) {
+      if (carga !== numeroCarga || usuario !== usuarioActual) return;
+      cargaFallida = anio;
+      mostrarEstadoNube('No se pudo cargar la proyección desde Supabase. Comprueba la conexión y vuelve a intentar.', true);
+      return;
     }
     mesFormula = null;
     document.getElementById('proy-anio-actual').textContent = String(anio);
@@ -908,10 +1009,9 @@ const proyeccion = (() => {
     const { data } = await sb.auth.getSession();
     const usuario = data?.session?.user?.id;
     if (!usuario) return;
-    if (usuario !== usuarioActual) {
-      usuarioActual = usuario;
-      cargarAnio(2027);
-    }
+    const anio = usuario === usuarioActual && plan ? Number(plan.inicio.slice(0, 4)) : 2027;
+    usuarioActual = usuario;
+    await cargarAnio(anio);
     actualizarPendientes();
   }
 
