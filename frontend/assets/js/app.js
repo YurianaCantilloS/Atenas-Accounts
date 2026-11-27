@@ -112,7 +112,7 @@ async function subirFotoAGithub(archivo, prefijo){
       throw new Error('La imagen debe pesar como máximo 3 MB después de comprimirla.');
     }
     const extension = imagen === archivo ? /\.([a-z0-9]+)$/i.exec(archivo.name)?.[1]?.toLowerCase() : 'jpg';
-    const res = await fetch('/api/subir-imagen', {
+    const res = await fetch('/api/subir-imagen.js', {
       method: 'POST',
       headers: {
         Authorization: 'Bearer ' + token,
